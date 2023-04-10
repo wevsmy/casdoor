@@ -110,6 +110,10 @@ export const OtherProviderInfo = {
       logo: `${StaticBaseUrl}/img/social_default.png`,
       url: "",
     },
+    "Sinowel SMS": {
+      logo: `${StaticBaseUrl}/img/social_default.png`,
+      url: "",
+    },
   },
   Email: {
     "Default": {
@@ -822,6 +826,7 @@ export function getProviderTypeOptions(category) {
         {id: "Twilio SMS", name: "Twilio SMS"},
         {id: "SmsBao SMS", name: "SmsBao SMS"},
         {id: "SUBMAIL SMS", name: "SUBMAIL SMS"},
+        {id: "Sinowel SMS", name: "Sinowel SMS"},
       ]
     );
   } else if (category === "Storage") {
