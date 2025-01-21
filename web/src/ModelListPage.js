@@ -13,25 +13,41 @@
 // limitations under the License.
 
 import React from "react";
+import {Controlled as CodeMirror} from "react-codemirror2";
 import {Link} from "react-router-dom";
-import {Button, Switch, Table} from "antd";
+import {Button, Popover, Table} from "antd";
 import moment from "moment";
 import * as Setting from "./Setting";
 import * as ModelBackend from "./backend/ModelBackend";
 import i18next from "i18next";
 import BaseListPage from "./BaseListPage";
-import PopconfirmModal from "./PopconfirmModal";
+import PopconfirmModal from "./common/modal/PopconfirmModal";
+
+const rbacModel = `[request_definition]
+r = sub, obj, act
+
+[policy_definition]
+p = sub, obj, act
+
+[role_definition]
+g = _, _
+
+[policy_effect]
+e = some(where (p.eft == allow))
+
+[matchers]
+m = g(r.sub, p.sub) && r.obj == p.obj && r.act == p.act`;
 
 class ModelListPage extends BaseListPage {
   newModel() {
     const randomName = Setting.getRandomName();
+    const owner = Setting.getRequestOrganization(this.props.account);
     return {
-      owner: "built-in",
+      owner: owner,
       name: `model_${randomName}`,
       createdTime: moment().format(),
       displayName: `New Model - ${randomName}`,
-      modelText: "",
-      isEnabled: true,
+      modelText: rbacModel,
     };
   }
 
@@ -56,9 +72,11 @@ class ModelListPage extends BaseListPage {
       .then((res) => {
         if (res.status === "ok") {
           Setting.showMessage("success", i18next.t("general:Successfully deleted"));
-          this.setState({
-            data: Setting.deleteRow(this.state.data, i),
-            pagination: {total: this.state.pagination.total - 1},
+          this.fetch({
+            pagination: {
+              ...this.state.pagination,
+              current: this.state.pagination.current > 1 && this.state.data.length === 1 ? this.state.pagination.current - 1 : this.state.pagination.current,
+            },
           });
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to delete")}: ${res.msg}`);
@@ -75,7 +93,7 @@ class ModelListPage extends BaseListPage {
         title: i18next.t("general:Name"),
         dataIndex: "name",
         key: "name",
-        width: "150px",
+        width: "180px",
         fixed: "left",
         sorter: true,
         ...this.getColumnSearchProps("name"),
@@ -91,7 +109,7 @@ class ModelListPage extends BaseListPage {
         title: i18next.t("general:Organization"),
         dataIndex: "owner",
         key: "owner",
-        width: "120px",
+        width: "180px",
         sorter: true,
         ...this.getColumnSearchProps("owner"),
         render: (text, record, index) => {
@@ -106,7 +124,7 @@ class ModelListPage extends BaseListPage {
         title: i18next.t("general:Created time"),
         dataIndex: "createdTime",
         key: "createdTime",
-        width: "160px",
+        width: "180px",
         sorter: true,
         render: (text, record, index) => {
           return Setting.getFormattedDate(text);
@@ -121,14 +139,26 @@ class ModelListPage extends BaseListPage {
         ...this.getColumnSearchProps("displayName"),
       },
       {
-        title: i18next.t("general:Is enabled"),
-        dataIndex: "isEnabled",
-        key: "isEnabled",
-        width: "120px",
+        title: i18next.t("model:Model text"),
+        dataIndex: "modelText",
+        key: "modelText",
+        // width: "180px",
         sorter: true,
         render: (text, record, index) => {
           return (
-            <Switch disabled checkedChildren="ON" unCheckedChildren="OFF" checked={text} />
+            <Popover placement="topRight" content={() => {
+              return (
+                <CodeMirror
+                  value={text}
+                  options={{mode: "properties", theme: "default"}}
+                  onBeforeChange={(editor, data, value) => {}}
+                />
+              );
+            }} title="" trigger="hover">
+              {
+                Setting.getShortText(text, 100)
+              }
+            </Popover>
           );
         },
       },
@@ -136,7 +166,7 @@ class ModelListPage extends BaseListPage {
         title: i18next.t("general:Action"),
         dataIndex: "",
         key: "op",
-        width: "170px",
+        width: "180px",
         fixed: (Setting.isMobile()) ? "false" : "right",
         render: (text, record, index) => {
           return (
@@ -144,6 +174,7 @@ class ModelListPage extends BaseListPage {
               <Button style={{marginTop: "10px", marginBottom: "10px", marginRight: "10px"}} type="primary"
                 onClick={() => this.props.history.push(`/models/${record.owner}/${record.name}`)}>{i18next.t("general:Edit")}</Button>
               <PopconfirmModal
+                disabled={Setting.builtInObject(record)}
                 title={i18next.t("general:Sure to delete") + `: ${record.name} ?`}
                 onConfirm={() => this.deleteModel(index)}
               >
@@ -187,11 +218,13 @@ class ModelListPage extends BaseListPage {
       value = params.type;
     }
     this.setState({loading: true});
-    ModelBackend.getModels("", params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
+    ModelBackend.getModels(Setting.isDefaultOrganizationSelected(this.props.account) ? "" : Setting.getRequestOrganization(this.props.account), params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
       .then((res) => {
+        this.setState({
+          loading: false,
+        });
         if (res.status === "ok") {
           this.setState({
-            loading: false,
             data: res.data,
             pagination: {
               ...params.pagination,
@@ -203,9 +236,10 @@ class ModelListPage extends BaseListPage {
         } else {
           if (Setting.isResponseDenied(res)) {
             this.setState({
-              loading: false,
               isAuthorized: false,
             });
+          } else {
+            Setting.showMessage("error", res.msg);
           }
         }
       });

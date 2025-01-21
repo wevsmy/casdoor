@@ -21,7 +21,7 @@ import * as ProviderBackend from "./backend/ProviderBackend";
 import * as Provider from "./auth/Provider";
 import i18next from "i18next";
 import BaseListPage from "./BaseListPage";
-import PopconfirmModal from "./PopconfirmModal";
+import PopconfirmModal from "./common/modal/PopconfirmModal";
 
 class ProviderListPage extends BaseListPage {
   constructor(props) {
@@ -29,6 +29,7 @@ class ProviderListPage extends BaseListPage {
   }
 
   componentDidMount() {
+    super.componentDidMount();
     this.setState({
       owner: Setting.isAdminUser(this.props.account) ? "admin" : this.props.account.owner,
     });
@@ -36,8 +37,9 @@ class ProviderListPage extends BaseListPage {
 
   newProvider() {
     const randomName = Setting.getRandomName();
+    const owner = Setting.isDefaultOrganizationSelected(this.props.account) ? this.state.owner : Setting.getRequestOrganization(this.props.account);
     return {
-      owner: this.state.owner,
+      owner: owner,
       name: `provider_${randomName}`,
       createdTime: moment().format(),
       displayName: `New Provider - ${randomName}`,
@@ -74,9 +76,11 @@ class ProviderListPage extends BaseListPage {
       .then((res) => {
         if (res.status === "ok") {
           Setting.showMessage("success", i18next.t("general:Successfully deleted"));
-          this.setState({
-            data: Setting.deleteRow(this.state.data, i),
-            pagination: {total: this.state.pagination.total - 1},
+          this.fetch({
+            pagination: {
+              ...this.state.pagination,
+              current: this.state.pagination.current > 1 && this.state.data.length === 1 ? this.state.pagination.current - 1 : this.state.pagination.current,
+            },
           });
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to delete")}: ${res.msg}`);
@@ -112,6 +116,9 @@ class ProviderListPage extends BaseListPage {
         width: "150px",
         sorter: true,
         ...this.getColumnSearchProps("owner"),
+        render: (text, record, index) => {
+          return (text !== "admin") ? text : i18next.t("provider:admin (Shared)");
+        },
       },
       {
         title: i18next.t("general:Created time"),
@@ -137,13 +144,15 @@ class ProviderListPage extends BaseListPage {
         key: "category",
         filterMultiple: false,
         filters: [
-          {text: "OAuth", value: "OAuth"},
+          {text: "Captcha", value: "Captcha"},
           {text: "Email", value: "Email"},
+          {text: "Notification", value: "Notification"},
+          {text: "OAuth", value: "OAuth"},
+          {text: "Payment", value: "Payment"},
+          {text: "SAML", value: "SAML"},
           {text: "SMS", value: "SMS"},
           {text: "Storage", value: "Storage"},
-          {text: "SAML", value: "SAML"},
-          {text: "Captcha", value: "Captcha"},
-          {text: "Payment", value: "Payment"},
+          {text: "Web3", value: "Web3"},
         ],
         width: "110px",
         sorter: true,
@@ -156,13 +165,15 @@ class ProviderListPage extends BaseListPage {
         align: "center",
         filterMultiple: false,
         filters: [
-          {text: "OAuth", value: "OAuth", children: Setting.getProviderTypeOptions("OAuth").map((o) => {return {text: o.id, value: o.name};})},
+          {text: "Captcha", value: "Captcha", children: Setting.getProviderTypeOptions("Captcha").map((o) => {return {text: o.id, value: o.name};})},
           {text: "Email", value: "Email", children: Setting.getProviderTypeOptions("Email").map((o) => {return {text: o.id, value: o.name};})},
+          {text: "Notification", value: "Notification", children: Setting.getProviderTypeOptions("Notification").map((o) => {return {text: o.id, value: o.name};})},
+          {text: "OAuth", value: "OAuth", children: Setting.getProviderTypeOptions("OAuth").map((o) => {return {text: o.id, value: o.name};})},
+          {text: "Payment", value: "Payment", children: Setting.getProviderTypeOptions("Payment").map((o) => {return {text: o.id, value: o.name};})},
+          {text: "SAML", value: "SAML", children: Setting.getProviderTypeOptions("SAML").map((o) => {return {text: o.id, value: o.name};})},
           {text: "SMS", value: "SMS", children: Setting.getProviderTypeOptions("SMS").map((o) => {return {text: o.id, value: o.name};})},
           {text: "Storage", value: "Storage", children: Setting.getProviderTypeOptions("Storage").map((o) => {return {text: o.id, value: o.name};})},
-          {text: "SAML", value: "SAML", children: Setting.getProviderTypeOptions("SAML").map((o) => {return {text: o.id, value: o.name};})},
-          {text: "Captcha", value: "Captcha", children: Setting.getProviderTypeOptions("Captcha").map((o) => {return {text: o.id, value: o.name};})},
-          {text: "Payment", value: "Payment", children: Setting.getProviderTypeOptions("Payment").map((o) => {return {text: o.id, value: o.name};})},
+          {text: "Web3", value: "Web3", children: Setting.getProviderTypeOptions("Web3").map((o) => {return {text: o.id, value: o.name};})},
         ],
         sorter: true,
         render: (text, record, index) => {
@@ -210,6 +221,7 @@ class ProviderListPage extends BaseListPage {
               <PopconfirmModal
                 title={i18next.t("general:Sure to delete") + `: ${record.name} ?`}
                 onConfirm={() => this.deleteProvider(index)}
+                disabled={!Setting.isAdminUser(this.props.account) && (record.owner !== this.props.account.owner)}
               >
               </PopconfirmModal>
             </div>
@@ -231,7 +243,7 @@ class ProviderListPage extends BaseListPage {
           title={() => (
             <div>
               {i18next.t("general:Providers")}&nbsp;&nbsp;&nbsp;&nbsp;
-              <Button type="primary" size="small" onClick={this.addProvider.bind(this)}>{i18next.t("general:Add")}</Button>
+              <Button id="add-button" type="primary" size="small" onClick={this.addProvider.bind(this)}>{i18next.t("general:Add")}</Button>
             </div>
           )}
           loading={this.state.loading}
@@ -252,12 +264,14 @@ class ProviderListPage extends BaseListPage {
       value = params.type;
     }
     this.setState({loading: true});
-    (Setting.isAdminUser(this.props.account) ? ProviderBackend.getGlobalProviders(params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
-      : ProviderBackend.getProviders(this.state.owner, params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder))
+    (Setting.isDefaultOrganizationSelected(this.props.account) ? ProviderBackend.getGlobalProviders(params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
+      : ProviderBackend.getProviders(Setting.getRequestOrganization(this.props.account), params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder))
       .then((res) => {
+        this.setState({
+          loading: false,
+        });
         if (res.status === "ok") {
           this.setState({
-            loading: false,
             data: res.data,
             pagination: {
               ...params.pagination,
@@ -269,9 +283,10 @@ class ProviderListPage extends BaseListPage {
         } else {
           if (Setting.isResponseDenied(res)) {
             this.setState({
-              loading: false,
               isAuthorized: false,
             });
+          } else {
+            Setting.showMessage("error", res.msg);
           }
         }
       });

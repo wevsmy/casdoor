@@ -20,25 +20,18 @@ import * as Setting from "./Setting";
 import * as AdapterBackend from "./backend/AdapterBackend";
 import i18next from "i18next";
 import BaseListPage from "./BaseListPage";
-import PopconfirmModal from "./PopconfirmModal";
+import PopconfirmModal from "./common/modal/PopconfirmModal";
 
 class AdapterListPage extends BaseListPage {
   newAdapter() {
     const randomName = Setting.getRandomName();
+    const owner = Setting.getRequestOrganization(this.props.account);
     return {
-      owner: "built-in",
+      owner: owner,
       name: `adapter_${randomName}`,
       createdTime: moment().format(),
-      organization: "built-in",
-      type: "Database",
-      host: "localhost",
-      port: 3306,
-      user: "root",
-      password: "123456",
-      databaseType: "mysql",
-      database: "dbName",
-      table: "tableName",
-      isEnabled: false,
+      table: "table_name",
+      useSameDb: true,
     };
   }
 
@@ -47,7 +40,7 @@ class AdapterListPage extends BaseListPage {
     AdapterBackend.addAdapter(newAdapter)
       .then((res) => {
         if (res.status === "ok") {
-          this.props.history.push({pathname: `/adapters/${newAdapter.organization}/${newAdapter.name}`, mode: "add"});
+          this.props.history.push({pathname: `/adapters/${newAdapter.owner}/${newAdapter.name}`, mode: "add"});
           Setting.showMessage("success", i18next.t("general:Successfully added"));
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to add")}: ${res.msg}`);
@@ -63,9 +56,11 @@ class AdapterListPage extends BaseListPage {
       .then((res) => {
         if (res.status === "ok") {
           Setting.showMessage("success", i18next.t("general:Successfully deleted"));
-          this.setState({
-            data: Setting.deleteRow(this.state.data, i),
-            pagination: {total: this.state.pagination.total - 1},
+          this.fetch({
+            pagination: {
+              ...this.state.pagination,
+              current: this.state.pagination.current > 1 && this.state.data.length === 1 ? this.state.pagination.current - 1 : this.state.pagination.current,
+            },
           });
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to delete")}: ${res.msg}`);
@@ -88,7 +83,7 @@ class AdapterListPage extends BaseListPage {
         ...this.getColumnSearchProps("name"),
         render: (text, record, index) => {
           return (
-            <Link to={`/adapters/${record.organization}/${text}`}>
+            <Link to={`/adapters/${record.owner}/${text}`}>
               {text}
             </Link>
           );
@@ -96,11 +91,11 @@ class AdapterListPage extends BaseListPage {
       },
       {
         title: i18next.t("general:Organization"),
-        dataIndex: "organization",
-        key: "organization",
+        dataIndex: "owner",
+        key: "owner",
         width: "120px",
         sorter: true,
-        ...this.getColumnSearchProps("organization"),
+        ...this.getColumnSearchProps("owner"),
         render: (text, record, index) => {
           return (
             <Link to={`/organizations/${text}`}>
@@ -120,6 +115,25 @@ class AdapterListPage extends BaseListPage {
         },
       },
       {
+        title: i18next.t("syncer:Table"),
+        dataIndex: "table",
+        key: "table",
+        width: "120px",
+        sorter: true,
+      },
+      {
+        title: i18next.t("adapter:Use same DB"),
+        dataIndex: "useSameDb",
+        key: "useSameDb",
+        width: "120px",
+        sorter: true,
+        render: (text, record, index) => {
+          return (
+            <Switch disabled checkedChildren="ON" unCheckedChildren="OFF" checked={text} />
+          );
+        },
+      },
+      {
         title: i18next.t("provider:Type"),
         dataIndex: "type",
         key: "type",
@@ -129,6 +143,13 @@ class AdapterListPage extends BaseListPage {
         filters: [
           {text: "Database", value: "Database"},
         ],
+      },
+      {
+        title: i18next.t("syncer:Database type"),
+        dataIndex: "databaseType",
+        key: "databaseType",
+        width: "120px",
+        sorter: (a, b) => a.databaseType.localeCompare(b.databaseType),
       },
       {
         title: i18next.t("provider:Host"),
@@ -145,6 +166,12 @@ class AdapterListPage extends BaseListPage {
         width: "100px",
         sorter: true,
         ...this.getColumnSearchProps("port"),
+        render: (text, record, index) => {
+          if (text === 0) {
+            return "";
+          }
+          return text;
+        },
       },
       {
         title: i18next.t("general:User"),
@@ -163,37 +190,11 @@ class AdapterListPage extends BaseListPage {
         ...this.getColumnSearchProps("password"),
       },
       {
-        title: i18next.t("syncer:Database type"),
-        dataIndex: "databaseType",
-        key: "databaseType",
-        width: "120px",
-        sorter: (a, b) => a.databaseType.localeCompare(b.databaseType),
-      },
-      {
         title: i18next.t("syncer:Database"),
         dataIndex: "database",
         key: "database",
         width: "120px",
         sorter: true,
-      },
-      {
-        title: i18next.t("syncer:Table"),
-        dataIndex: "table",
-        key: "table",
-        width: "120px",
-        sorter: true,
-      },
-      {
-        title: i18next.t("general:Is enabled"),
-        dataIndex: "isEnabled",
-        key: "isEnabled",
-        width: "120px",
-        sorter: true,
-        render: (text, record, index) => {
-          return (
-            <Switch disabled checkedChildren="ON" unCheckedChildren="OFF" checked={text} />
-          );
-        },
       },
       {
         title: i18next.t("general:Action"),
@@ -206,6 +207,7 @@ class AdapterListPage extends BaseListPage {
             <div>
               <Button style={{marginTop: "10px", marginBottom: "10px", marginRight: "10px"}} type="primary" onClick={() => this.props.history.push(`/adapters/${record.owner}/${record.name}`)}>{i18next.t("general:Edit")}</Button>
               <PopconfirmModal
+                disabled={Setting.builtInObject(record)}
                 title={i18next.t("general:Sure to delete") + `: ${record.name} ?`}
                 onConfirm={() => this.deleteAdapter(index)}
               >
@@ -247,11 +249,13 @@ class AdapterListPage extends BaseListPage {
       value = params.type;
     }
     this.setState({loading: true});
-    AdapterBackend.getAdapters("", params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
+    AdapterBackend.getAdapters(Setting.isDefaultOrganizationSelected(this.props.account) ? "" : Setting.getRequestOrganization(this.props.account), params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
       .then((res) => {
+        this.setState({
+          loading: false,
+        });
         if (res.status === "ok") {
           this.setState({
-            loading: false,
             data: res.data,
             pagination: {
               ...params.pagination,
@@ -263,9 +267,10 @@ class AdapterListPage extends BaseListPage {
         } else {
           if (Setting.isResponseDenied(res)) {
             this.setState({
-              loading: false,
               isAuthorized: false,
             });
+          } else {
+            Setting.showMessage("error", res.msg);
           }
         }
       });

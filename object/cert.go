@@ -33,10 +33,8 @@ type Cert struct {
 	BitSize         int    `json:"bitSize"`
 	ExpireInYears   int    `json:"expireInYears"`
 
-	Certificate            string `xorm:"mediumtext" json:"certificate"`
-	PrivateKey             string `xorm:"mediumtext" json:"privateKey"`
-	AuthorityPublicKey     string `xorm:"mediumtext" json:"authorityPublicKey"`
-	AuthorityRootPublicKey string `xorm:"mediumtext" json:"authorityRootPublicKey"`
+	Certificate string `xorm:"mediumtext" json:"certificate"`
+	PrivateKey  string `xorm:"mediumtext" json:"privateKey"`
 }
 
 func GetMaskedCert(cert *Cert) *Cert {
@@ -47,129 +45,218 @@ func GetMaskedCert(cert *Cert) *Cert {
 	return cert
 }
 
-func GetMaskedCerts(certs []*Cert) []*Cert {
+func GetMaskedCerts(certs []*Cert, err error) ([]*Cert, error) {
+	if err != nil {
+		return nil, err
+	}
+
 	for _, cert := range certs {
 		cert = GetMaskedCert(cert)
 	}
-	return certs
+	return certs, nil
 }
 
-func GetCertCount(owner, field, value string) int {
-	session := GetSession(owner, -1, -1, field, value, "", "")
-	count, err := session.Count(&Cert{})
+func GetCertCount(owner, field, value string) (int64, error) {
+	session := GetSession("", -1, -1, field, value, "", "")
+	return session.Where("owner = ? or owner = ? ", "admin", owner).Count(&Cert{})
+}
+
+func GetCerts(owner string) ([]*Cert, error) {
+	certs := []*Cert{}
+	err := ormer.Engine.Where("owner = ? or owner = ? ", "admin", owner).Desc("created_time").Find(&certs, &Cert{})
 	if err != nil {
-		panic(err)
+		return certs, err
 	}
 
-	return int(count)
+	return certs, nil
 }
 
-func GetCerts(owner string) []*Cert {
+func GetPaginationCerts(owner string, offset, limit int, field, value, sortField, sortOrder string) ([]*Cert, error) {
 	certs := []*Cert{}
-	err := adapter.Engine.Desc("created_time").Find(&certs, &Cert{Owner: owner})
+	session := GetSession("", offset, limit, field, value, sortField, sortOrder)
+	err := session.Where("owner = ? or owner = ? ", "admin", owner).Find(&certs)
 	if err != nil {
-		panic(err)
+		return certs, err
 	}
 
-	return certs
+	return certs, nil
 }
 
-func GetPaginationCerts(owner string, offset, limit int, field, value, sortField, sortOrder string) []*Cert {
+func GetGlobalCertsCount(field, value string) (int64, error) {
+	session := GetSession("", -1, -1, field, value, "", "")
+	return session.Count(&Cert{})
+}
+
+func GetGlobalCerts() ([]*Cert, error) {
 	certs := []*Cert{}
-	session := GetSession(owner, offset, limit, field, value, sortField, sortOrder)
+	err := ormer.Engine.Desc("created_time").Find(&certs)
+	if err != nil {
+		return certs, err
+	}
+
+	return certs, nil
+}
+
+func GetPaginationGlobalCerts(offset, limit int, field, value, sortField, sortOrder string) ([]*Cert, error) {
+	certs := []*Cert{}
+	session := GetSession("", offset, limit, field, value, sortField, sortOrder)
 	err := session.Find(&certs)
 	if err != nil {
-		panic(err)
+		return certs, err
 	}
 
-	return certs
+	return certs, nil
 }
 
-func getCert(owner string, name string) *Cert {
+func getCert(owner string, name string) (*Cert, error) {
 	if owner == "" || name == "" {
-		return nil
+		return nil, nil
 	}
 
 	cert := Cert{Owner: owner, Name: name}
-	existed, err := adapter.Engine.Get(&cert)
+	existed, err := ormer.Engine.Get(&cert)
 	if err != nil {
-		panic(err)
+		return &cert, err
 	}
 
 	if existed {
-		return &cert
+		return &cert, nil
 	} else {
-		return nil
+		return nil, nil
 	}
 }
 
-func GetCert(id string) *Cert {
+func getCertByName(name string) (*Cert, error) {
+	if name == "" {
+		return nil, nil
+	}
+
+	cert := Cert{Name: name}
+	existed, err := ormer.Engine.Get(&cert)
+	if err != nil {
+		return &cert, nil
+	}
+
+	if existed {
+		return &cert, nil
+	} else {
+		return nil, nil
+	}
+}
+
+func GetCert(id string) (*Cert, error) {
 	owner, name := util.GetOwnerAndNameFromId(id)
 	return getCert(owner, name)
 }
 
-func UpdateCert(id string, cert *Cert) bool {
+func UpdateCert(id string, cert *Cert) (bool, error) {
 	owner, name := util.GetOwnerAndNameFromId(id)
-	if getCert(owner, name) == nil {
-		return false
+	if c, err := getCert(owner, name); err != nil {
+		return false, err
+	} else if c == nil {
+		return false, nil
 	}
 
 	if name != cert.Name {
 		err := certChangeTrigger(name, cert.Name)
 		if err != nil {
-			return false
+			return false, err
 		}
 	}
-	affected, err := adapter.Engine.ID(core.PK{owner, name}).AllCols().Update(cert)
+
+	err := cert.populateContent()
 	if err != nil {
-		panic(err)
+		return false, err
 	}
 
-	return affected != 0
+	affected, err := ormer.Engine.ID(core.PK{owner, name}).AllCols().Update(cert)
+	if err != nil {
+		return false, err
+	}
+
+	return affected != 0, nil
 }
 
-func AddCert(cert *Cert) bool {
-	if cert.Certificate == "" || cert.PrivateKey == "" {
-		certificate, privateKey := generateRsaKeys(cert.BitSize, cert.ExpireInYears, cert.Name, cert.Owner)
-		cert.Certificate = certificate
-		cert.PrivateKey = privateKey
-	}
-
-	affected, err := adapter.Engine.Insert(cert)
+func AddCert(cert *Cert) (bool, error) {
+	err := cert.populateContent()
 	if err != nil {
-		panic(err)
+		return false, err
 	}
 
-	return affected != 0
+	affected, err := ormer.Engine.Insert(cert)
+	if err != nil {
+		return false, err
+	}
+
+	return affected != 0, nil
 }
 
-func DeleteCert(cert *Cert) bool {
-	affected, err := adapter.Engine.ID(core.PK{cert.Owner, cert.Name}).Delete(&Cert{})
+func DeleteCert(cert *Cert) (bool, error) {
+	affected, err := ormer.Engine.ID(core.PK{cert.Owner, cert.Name}).Delete(&Cert{})
 	if err != nil {
-		panic(err)
+		return false, err
 	}
 
-	return affected != 0
+	return affected != 0, nil
 }
 
 func (p *Cert) GetId() string {
 	return fmt.Sprintf("%s/%s", p.Owner, p.Name)
 }
 
-func getCertByApplication(application *Application) *Cert {
+func (p *Cert) populateContent() error {
+	if p.Certificate != "" && p.PrivateKey != "" {
+		return nil
+	}
+
+	if len(p.CryptoAlgorithm) < 3 {
+		err := fmt.Errorf("populateContent() error, unsupported crypto algorithm: %s", p.CryptoAlgorithm)
+		return err
+	}
+
+	if p.CryptoAlgorithm == "RSA" {
+		p.CryptoAlgorithm = "RS256"
+	}
+
+	sigAlgorithm := p.CryptoAlgorithm[:2]
+	shaSize, err := util.ParseIntWithError(p.CryptoAlgorithm[2:])
+	if err != nil {
+		return err
+	}
+
+	var certificate, privateKey string
+	if sigAlgorithm == "RS" {
+		certificate, privateKey, err = generateRsaKeys(p.BitSize, shaSize, p.ExpireInYears, p.Name, p.Owner)
+	} else if sigAlgorithm == "ES" {
+		certificate, privateKey, err = generateEsKeys(shaSize, p.ExpireInYears, p.Name, p.Owner)
+	} else if sigAlgorithm == "PS" {
+		certificate, privateKey, err = generateRsaPssKeys(p.BitSize, shaSize, p.ExpireInYears, p.Name, p.Owner)
+	} else {
+		err = fmt.Errorf("populateContent() error, unsupported signature algorithm: %s", sigAlgorithm)
+	}
+	if err != nil {
+		return err
+	}
+
+	p.Certificate = certificate
+	p.PrivateKey = privateKey
+	return nil
+}
+
+func getCertByApplication(application *Application) (*Cert, error) {
 	if application.Cert != "" {
-		return getCert("admin", application.Cert)
+		return getCertByName(application.Cert)
 	} else {
 		return GetDefaultCert()
 	}
 }
 
-func GetDefaultCert() *Cert {
+func GetDefaultCert() (*Cert, error) {
 	return getCert("admin", "cert-built-in")
 }
 
 func certChangeTrigger(oldName string, newName string) error {
-	session := adapter.Engine.NewSession()
+	session := ormer.Engine.NewSession()
 	defer session.Close()
 
 	err := session.Begin()

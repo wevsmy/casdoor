@@ -21,19 +21,19 @@ import * as PaymentBackend from "./backend/PaymentBackend";
 import i18next from "i18next";
 import BaseListPage from "./BaseListPage";
 import * as Provider from "./auth/Provider";
-import PopconfirmModal from "./PopconfirmModal";
+import PopconfirmModal from "./common/modal/PopconfirmModal";
 
 class PaymentListPage extends BaseListPage {
   newPayment() {
     const randomName = Setting.getRandomName();
+    const organizationName = Setting.getRequestOrganization(this.props.account);
     return {
-      owner: "admin",
+      owner: organizationName,
       name: `payment_${randomName}`,
       createdTime: moment().format(),
       displayName: `New Payment - ${randomName}`,
       provider: "provider_pay_paypal",
       type: "PayPal",
-      organization: "built-in",
       user: "admin",
       productName: "computer-1",
       productDisplayName: "A notebook computer",
@@ -53,7 +53,7 @@ class PaymentListPage extends BaseListPage {
     PaymentBackend.addPayment(newPayment)
       .then((res) => {
         if (res.status === "ok") {
-          this.props.history.push({pathname: `/payments/${newPayment.name}`, mode: "add"});
+          this.props.history.push({pathname: `/payments/${newPayment.owner}/${newPayment.name}`, mode: "add"});
           Setting.showMessage("success", i18next.t("general:Successfully added"));
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to add")}: ${res.msg}`);
@@ -70,9 +70,11 @@ class PaymentListPage extends BaseListPage {
       .then((res) => {
         if (res.status === "ok") {
           Setting.showMessage("success", i18next.t("general:Successfully deleted"));
-          this.setState({
-            data: Setting.deleteRow(this.state.data, i),
-            pagination: {total: this.state.pagination.total - 1},
+          this.fetch({
+            pagination: {
+              ...this.state.pagination,
+              current: this.state.pagination.current > 1 && this.state.data.length === 1 ? this.state.pagination.current - 1 : this.state.pagination.current,
+            },
           });
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to delete")}: ${res.msg}`);
@@ -95,7 +97,22 @@ class PaymentListPage extends BaseListPage {
         ...this.getColumnSearchProps("name"),
         render: (text, record, index) => {
           return (
-            <Link to={`/payments/${text}`}>
+            <Link to={`/payments/${record.owner}/${text}`}>
+              {text}
+            </Link>
+          );
+        },
+      },
+      {
+        title: i18next.t("general:Organization"),
+        dataIndex: "owner",
+        key: "owner",
+        width: "120px",
+        sorter: true,
+        ...this.getColumnSearchProps("owner"),
+        render: (text, record, index) => {
+          return (
+            <Link to={`/organizations/${text}`}>
               {text}
             </Link>
           );
@@ -111,22 +128,7 @@ class PaymentListPage extends BaseListPage {
         ...this.getColumnSearchProps("provider"),
         render: (text, record, index) => {
           return (
-            <Link to={`/providers/${text}`}>
-              {text}
-            </Link>
-          );
-        },
-      },
-      {
-        title: i18next.t("general:Organization"),
-        dataIndex: "organization",
-        key: "organization",
-        width: "120px",
-        sorter: true,
-        ...this.getColumnSearchProps("organization"),
-        render: (text, record, index) => {
-          return (
-            <Link to={`/organizations/${text}`}>
+            <Link to={`/providers/${record.owner}/${text}`}>
               {text}
             </Link>
           );
@@ -141,7 +143,7 @@ class PaymentListPage extends BaseListPage {
         ...this.getColumnSearchProps("user"),
         render: (text, record, index) => {
           return (
-            <Link to={`/users/${record.organization}/${text}`}>
+            <Link to={`/users/${record.owner}/${text}`}>
               {text}
             </Link>
           );
@@ -158,14 +160,6 @@ class PaymentListPage extends BaseListPage {
           return Setting.getFormattedDate(text);
         },
       },
-      // {
-      //   title: i18next.t("general:Display name"),
-      //   dataIndex: 'displayName',
-      //   key: 'displayName',
-      //   width: '160px',
-      //   sorter: true,
-      //   ...this.getColumnSearchProps('displayName'),
-      // },
       {
         title: i18next.t("provider:Type"),
         dataIndex: "type",
@@ -187,6 +181,13 @@ class PaymentListPage extends BaseListPage {
         // width: '160px',
         sorter: true,
         ...this.getColumnSearchProps("productDisplayName"),
+        render: (text, record, index) => {
+          return (
+            <Link to={`/products/${record.owner}/${record.productName}`}>
+              {text}
+            </Link>
+          );
+        },
       },
       {
         title: i18next.t("product:Price"),
@@ -221,8 +222,8 @@ class PaymentListPage extends BaseListPage {
         render: (text, record, index) => {
           return (
             <div>
-              <Button style={{marginTop: "10px", marginBottom: "10px", marginRight: "10px"}} onClick={() => this.props.history.push(`/payments/${record.name}/result`)}>{i18next.t("payment:Result")}</Button>
-              <Button style={{marginTop: "10px", marginBottom: "10px", marginRight: "10px"}} type="primary" onClick={() => this.props.history.push(`/payments/${record.name}`)}>{i18next.t("general:Edit")}</Button>
+              <Button style={{marginTop: "10px", marginBottom: "10px", marginRight: "10px"}} onClick={() => this.props.history.push(`/payments/${record.owner}/${record.name}/result`)}>{i18next.t("payment:Result")}</Button>
+              <Button style={{marginTop: "10px", marginBottom: "10px", marginRight: "10px"}} type="primary" onClick={() => this.props.history.push(`/payments/${record.owner}/${record.name}`)}>{i18next.t("general:Edit")}</Button>
               <PopconfirmModal
                 title={i18next.t("general:Sure to delete") + `: ${record.name} ?`}
                 onConfirm={() => this.deletePayment(index)}
@@ -265,11 +266,13 @@ class PaymentListPage extends BaseListPage {
       value = params.type;
     }
     this.setState({loading: true});
-    PaymentBackend.getPayments("", params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
+    PaymentBackend.getPayments(Setting.isDefaultOrganizationSelected(this.props.account) ? "" : Setting.getRequestOrganization(this.props.account), params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
       .then((res) => {
+        this.setState({
+          loading: false,
+        });
         if (res.status === "ok") {
           this.setState({
-            loading: false,
             data: res.data,
             pagination: {
               ...params.pagination,
@@ -281,9 +284,10 @@ class PaymentListPage extends BaseListPage {
         } else {
           if (Setting.isResponseDenied(res)) {
             this.setState({
-              loading: false,
               isAuthorized: false,
             });
+          } else {
+            Setting.showMessage("error", res.msg);
           }
         }
       });

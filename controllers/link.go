@@ -26,8 +26,10 @@ type LinkForm struct {
 }
 
 // Unlink ...
-// @router /unlink [post]
 // @Tag Login API
+// @Title Unlink
+// @router /unlink [post]
+// @Success 200 {object} object.Userinfo The Response object
 func (c *ApiController) Unlink() {
 	user, ok := c.RequireSignedInUser()
 	if !ok {
@@ -45,15 +47,19 @@ func (c *ApiController) Unlink() {
 	// the user will be unlinked from the provider
 	unlinkedUser := form.User
 
-	if user.Id != unlinkedUser.Id && !user.IsGlobalAdmin {
+	if user.Id != unlinkedUser.Id && !user.IsGlobalAdmin() {
 		// if the user is not the same as the one we are unlinking, we need to make sure the user is the global admin.
 		c.ResponseError(c.T("link:You are not the global admin, you can't unlink other users"))
 		return
 	}
 
-	if user.Id == unlinkedUser.Id && !user.IsGlobalAdmin {
+	if user.Id == unlinkedUser.Id && !user.IsGlobalAdmin() {
 		// if the user is unlinking themselves, should check the provider can be unlinked, if not, we should return an error.
-		application := object.GetApplicationByUser(user)
+		application, err := object.GetApplicationByUser(user)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
 		if application == nil {
 			c.ResponseError(c.T("link:You can't unlink yourself, you are not a member of any application"))
 			return
@@ -88,8 +94,17 @@ func (c *ApiController) Unlink() {
 		return
 	}
 
-	object.ClearUserOAuthProperties(&unlinkedUser, providerType)
+	_, err = object.ClearUserOAuthProperties(&unlinkedUser, providerType)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
 
-	object.LinkUserAccount(&unlinkedUser, providerType, "")
+	_, err = object.LinkUserAccount(&unlinkedUser, providerType, "")
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
 	c.ResponseOk()
 }

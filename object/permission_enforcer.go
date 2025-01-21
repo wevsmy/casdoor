@@ -23,62 +23,94 @@ import (
 	"github.com/casbin/casbin/v2/log"
 	"github.com/casbin/casbin/v2/model"
 	"github.com/casdoor/casdoor/conf"
+	"github.com/casdoor/casdoor/util"
 	xormadapter "github.com/casdoor/xorm-adapter/v3"
 )
 
-func getEnforcer(permission *Permission) *casbin.Enforcer {
+func getPermissionEnforcer(p *Permission, permissionIDs ...string) (*casbin.Enforcer, error) {
+	// Init an enforcer instance without specifying a model or adapter.
+	// If you specify an adapter, it will load all policies, which is a
+	// heavy process that can slow down the application.
+	enforcer, err := casbin.NewEnforcer(&log.DefaultLogger{}, false)
+	if err != nil {
+		return nil, err
+	}
+
+	err = p.setEnforcerModel(enforcer)
+	if err != nil {
+		return nil, err
+	}
+
+	err = p.setEnforcerAdapter(enforcer)
+	if err != nil {
+		return nil, err
+	}
+
+	policyFilterV5 := []string{p.GetId()}
+	if len(permissionIDs) != 0 {
+		policyFilterV5 = permissionIDs
+	}
+
+	policyFilter := xormadapter.Filter{
+		V5: policyFilterV5,
+	}
+
+	if !HasRoleDefinition(enforcer.GetModel()) {
+		policyFilter.Ptype = []string{"p"}
+	}
+
+	err = enforcer.LoadFilteredPolicy(policyFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	return enforcer, nil
+}
+
+func (p *Permission) setEnforcerAdapter(enforcer *casbin.Enforcer) error {
 	tableName := "permission_rule"
-	if len(permission.Adapter) != 0 {
-		adapterObj := getCasbinAdapter(permission.Owner, permission.Adapter)
+	if len(p.Adapter) != 0 {
+		adapterObj, err := getAdapter(p.Owner, p.Adapter)
+		if err != nil {
+			return err
+		}
+
 		if adapterObj != nil && adapterObj.Table != "" {
 			tableName = adapterObj.Table
 		}
 	}
 	tableNamePrefix := conf.GetConfigString("tableNamePrefix")
-	driverName := conf.GetConfigString("driverName")
-	dataSourceName := conf.GetConfigRealDataSourceName(driverName)
-	adapter, err := xormadapter.NewAdapterWithTableName(driverName, dataSourceName, tableName, tableNamePrefix, true)
+	adapter, err := xormadapter.NewAdapterByEngineWithTableName(ormer.Engine, tableName, tableNamePrefix)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	permissionModel := getModel(permission.Owner, permission.Model)
+	enforcer.SetAdapter(adapter)
+	return nil
+}
+
+func (p *Permission) setEnforcerModel(enforcer *casbin.Enforcer) error {
+	permissionModel, err := getModel(p.Owner, p.Model)
+	if err != nil {
+		return err
+	}
+
+	// TODO: return error if permissionModel is nil.
 	m := model.Model{}
 	if permissionModel != nil {
 		m, err = GetBuiltInModel(permissionModel.ModelText)
 	} else {
 		m, err = GetBuiltInModel("")
 	}
-
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	// Init an enforcer instance without specifying a model or adapter.
-	// If you specify an adapter, it will load all policies, which is a
-	// heavy process that can slow down the application.
-	enforcer, err := casbin.NewEnforcer(&log.DefaultLogger{}, false)
+	err = enforcer.InitWithModelAndAdapter(m, nil)
 	if err != nil {
-		panic(err)
+		return err
 	}
-
-	enforcer.InitWithModelAndAdapter(m, nil)
-	enforcer.SetAdapter(adapter)
-
-	policyFilter := xormadapter.Filter{
-		V5: []string{permission.GetId()},
-	}
-
-	if !HasRoleDefinition(m) {
-		policyFilter.Ptype = []string{"p"}
-	}
-
-	err = enforcer.LoadFilteredPolicy(policyFilter)
-	if err != nil {
-		panic(err)
-	}
-
-	return enforcer
+	return nil
 }
 
 func getPolicies(permission *Permission) [][]string {
@@ -87,29 +119,16 @@ func getPolicies(permission *Permission) [][]string {
 	permissionId := permission.GetId()
 	domainExist := len(permission.Domains) > 0
 
-	for _, user := range permission.Users {
+	usersAndRoles := append(permission.Users, permission.Roles...)
+	for _, userOrRole := range usersAndRoles {
 		for _, resource := range permission.Resources {
 			for _, action := range permission.Actions {
 				if domainExist {
 					for _, domain := range permission.Domains {
-						policies = append(policies, []string{user, domain, resource, strings.ToLower(action), "", permissionId})
+						policies = append(policies, []string{userOrRole, domain, resource, strings.ToLower(action), strings.ToLower(permission.Effect), permissionId})
 					}
 				} else {
-					policies = append(policies, []string{user, resource, strings.ToLower(action), "", "", permissionId})
-				}
-			}
-		}
-	}
-
-	for _, role := range permission.Roles {
-		for _, resource := range permission.Resources {
-			for _, action := range permission.Actions {
-				if domainExist {
-					for _, domain := range permission.Domains {
-						policies = append(policies, []string{role, domain, resource, strings.ToLower(action), "", permissionId})
-					}
-				} else {
-					policies = append(policies, []string{role, resource, strings.ToLower(action), "", "", permissionId})
+					policies = append(policies, []string{userOrRole, resource, strings.ToLower(action), strings.ToLower(permission.Effect), "", permissionId})
 				}
 			}
 		}
@@ -118,153 +137,255 @@ func getPolicies(permission *Permission) [][]string {
 	return policies
 }
 
-func getGroupingPolicies(permission *Permission) [][]string {
+func getRolesInRole(roleId string, visited map[string]struct{}) ([]*Role, error) {
+	roleOwner, roleName := util.GetOwnerAndNameFromId(roleId)
+	if roleName == "*" {
+		roles, err := GetRoles(roleOwner)
+		if err != nil {
+			return []*Role{}, err
+		}
+
+		return roles, nil
+	}
+
+	role, err := GetRole(roleId)
+	if err != nil {
+		return []*Role{}, err
+	}
+
+	if role == nil {
+		return []*Role{}, nil
+	}
+	visited[roleId] = struct{}{}
+
+	roles := []*Role{role}
+	for _, subRole := range role.Roles {
+		if _, ok := visited[subRole]; !ok {
+			r, err := getRolesInRole(subRole, visited)
+			if err != nil {
+				return []*Role{}, err
+			}
+
+			roles = append(roles, r...)
+		}
+	}
+
+	return roles, nil
+}
+
+func getGroupingPolicies(permission *Permission) ([][]string, error) {
 	var groupingPolicies [][]string
 
 	domainExist := len(permission.Domains) > 0
 	permissionId := permission.GetId()
 
-	for _, role := range permission.Roles {
-		roleObj := GetRole(role)
-		if roleObj == nil {
-			continue
+	for _, roleId := range permission.Roles {
+		visited := map[string]struct{}{}
+
+		if roleId == "*" {
+			roleId = util.GetId(permission.Owner, "*")
 		}
 
-		for _, subUser := range roleObj.Users {
-			if domainExist {
-				for _, domain := range permission.Domains {
-					groupingPolicies = append(groupingPolicies, []string{subUser, role, domain, "", "", permissionId})
+		rolesInRole, err := getRolesInRole(roleId, visited)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, role := range rolesInRole {
+			roleId = role.GetId()
+			for _, subUser := range role.Users {
+				if domainExist {
+					for _, domain := range permission.Domains {
+						groupingPolicies = append(groupingPolicies, []string{subUser, roleId, domain, "", "", permissionId})
+					}
+				} else {
+					groupingPolicies = append(groupingPolicies, []string{subUser, roleId, "", "", "", permissionId})
 				}
-			} else {
-				groupingPolicies = append(groupingPolicies, []string{subUser, role, "", "", "", permissionId})
+			}
+
+			for _, subRole := range role.Roles {
+				if domainExist {
+					for _, domain := range permission.Domains {
+						groupingPolicies = append(groupingPolicies, []string{subRole, roleId, domain, "", "", permissionId})
+					}
+				} else {
+					groupingPolicies = append(groupingPolicies, []string{subRole, roleId, "", "", "", permissionId})
+				}
 			}
 		}
-
-		for _, subRole := range roleObj.Roles {
-			if domainExist {
-				for _, domain := range permission.Domains {
-					groupingPolicies = append(groupingPolicies, []string{subRole, role, domain, "", "", permissionId})
-				}
-			} else {
-				groupingPolicies = append(groupingPolicies, []string{subRole, role, "", "", "", permissionId})
-			}
-		}
 	}
 
-	return groupingPolicies
+	return groupingPolicies, nil
 }
 
-func addPolicies(permission *Permission) {
-	enforcer := getEnforcer(permission)
+func addPolicies(permission *Permission) error {
+	enforcer, err := getPermissionEnforcer(permission)
+	if err != nil {
+		return err
+	}
+
 	policies := getPolicies(permission)
 
-	_, err := enforcer.AddPolicies(policies)
+	_, err = enforcer.AddPolicies(policies)
+	return err
+}
+
+func removePolicies(permission *Permission) error {
+	enforcer, err := getPermissionEnforcer(permission)
 	if err != nil {
-		panic(err)
+		return err
 	}
-}
 
-func addGroupingPolicies(permission *Permission) {
-	enforcer := getEnforcer(permission)
-	groupingPolicies := getGroupingPolicies(permission)
-
-	if len(groupingPolicies) > 0 {
-		_, err := enforcer.AddGroupingPolicies(groupingPolicies)
-		if err != nil {
-			panic(err)
-		}
-	}
-}
-
-func removeGroupingPolicies(permission *Permission) {
-	enforcer := getEnforcer(permission)
-	groupingPolicies := getGroupingPolicies(permission)
-
-	if len(groupingPolicies) > 0 {
-		_, err := enforcer.RemoveGroupingPolicies(groupingPolicies)
-		if err != nil {
-			panic(err)
-		}
-	}
-}
-
-func removePolicies(permission *Permission) {
-	enforcer := getEnforcer(permission)
 	policies := getPolicies(permission)
 
-	_, err := enforcer.RemovePolicies(policies)
-	if err != nil {
-		panic(err)
-	}
+	_, err = enforcer.RemovePolicies(policies)
+	return err
 }
 
-func Enforce(permissionRule *PermissionRule) bool {
-	permission := GetPermission(permissionRule.Id)
-	enforcer := getEnforcer(permission)
-
-	request, _ := permissionRule.GetRequest(builtInAdapter, permissionRule.Id)
-
-	allow, err := enforcer.Enforce(request...)
+func addGroupingPolicies(permission *Permission) error {
+	enforcer, err := getPermissionEnforcer(permission)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	return allow
+
+	groupingPolicies, err := getGroupingPolicies(permission)
+	if err != nil {
+		return err
+	}
+
+	if len(groupingPolicies) > 0 {
+		_, err = enforcer.AddGroupingPolicies(groupingPolicies)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func BatchEnforce(permissionRules []PermissionRule) []bool {
-	var requests [][]interface{}
-	for _, permissionRule := range permissionRules {
-		request, _ := permissionRule.GetRequest(builtInAdapter, permissionRule.Id)
-		requests = append(requests, request)
-	}
-	permission := GetPermission(permissionRules[0].Id)
-	enforcer := getEnforcer(permission)
-	allow, err := enforcer.BatchEnforce(requests)
+func removeGroupingPolicies(permission *Permission) error {
+	enforcer, err := getPermissionEnforcer(permission)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	return allow
+
+	groupingPolicies, err := getGroupingPolicies(permission)
+	if err != nil {
+		return err
+	}
+
+	if len(groupingPolicies) > 0 {
+		_, err = enforcer.RemoveGroupingPolicies(groupingPolicies)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func getAllValues(userId string, fn func(enforcer *casbin.Enforcer) []string) []string {
-	permissions := GetPermissionsByUser(userId)
-	for _, role := range GetAllRoles(userId) {
-		permissions = append(permissions, GetPermissionsByRole(role)...)
+func Enforce(permission *Permission, request []string, permissionIds ...string) (bool, error) {
+	enforcer, err := getPermissionEnforcer(permission, permissionIds...)
+	if err != nil {
+		return false, err
 	}
 
-	var values []string
+	// type transformation
+	interfaceRequest := util.StringToInterfaceArray(request)
+
+	return enforcer.Enforce(interfaceRequest...)
+}
+
+func BatchEnforce(permission *Permission, requests [][]string, permissionIds ...string) ([]bool, error) {
+	enforcer, err := getPermissionEnforcer(permission, permissionIds...)
+	if err != nil {
+		return nil, err
+	}
+
+	// type transformation
+	interfaceRequests := util.StringToInterfaceArray2d(requests)
+
+	return enforcer.BatchEnforce(interfaceRequests)
+}
+
+func getEnforcers(userId string) ([]*casbin.Enforcer, error) {
+	permissions, _, err := getPermissionsAndRolesByUser(userId)
+	if err != nil {
+		return nil, err
+	}
+
+	allRoles, err := GetAllRoles(userId)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, role := range allRoles {
+		var permissionsByRole []*Permission
+		permissionsByRole, err = GetPermissionsByRole(role)
+		if err != nil {
+			return nil, err
+		}
+
+		permissions = append(permissions, permissionsByRole...)
+	}
+
+	var enforcers []*casbin.Enforcer
 	for _, permission := range permissions {
-		enforcer := getEnforcer(permission)
-		values = append(values, fn(enforcer)...)
+		var enforcer *casbin.Enforcer
+		enforcer, err = getPermissionEnforcer(permission)
+		if err != nil {
+			return nil, err
+		}
+
+		enforcers = append(enforcers, enforcer)
 	}
-	return values
+	return enforcers, nil
 }
 
-func GetAllObjects(userId string) []string {
-	return getAllValues(userId, func(enforcer *casbin.Enforcer) []string {
-		return enforcer.GetAllObjects()
-	})
+func GetAllObjects(userId string) ([]string, error) {
+	enforcers, err := getEnforcers(userId)
+	if err != nil {
+		return nil, err
+	}
+
+	res := []string{}
+	for _, enforcer := range enforcers {
+		items := enforcer.GetAllObjects()
+		res = append(res, items...)
+	}
+	return res, nil
 }
 
-func GetAllActions(userId string) []string {
-	return getAllValues(userId, func(enforcer *casbin.Enforcer) []string {
-		return enforcer.GetAllActions()
-	})
+func GetAllActions(userId string) ([]string, error) {
+	enforcers, err := getEnforcers(userId)
+	if err != nil {
+		return nil, err
+	}
+
+	res := []string{}
+	for _, enforcer := range enforcers {
+		items := enforcer.GetAllActions()
+		res = append(res, items...)
+	}
+	return res, nil
 }
 
-func GetAllRoles(userId string) []string {
-	roles := GetRolesByUser(userId)
-	var res []string
+func GetAllRoles(userId string) ([]string, error) {
+	roles, err := getRolesByUser(userId)
+	if err != nil {
+		return nil, err
+	}
+
+	res := []string{}
 	for _, role := range roles {
 		res = append(res, role.Name)
 	}
-	return res
+	return res, nil
 }
 
 func GetBuiltInModel(modelText string) (model.Model, error) {
 	if modelText == "" {
-		modelText = `
-[request_definition]
+		modelText = `[request_definition]
 r = sub, obj, act
 
 [policy_definition]
@@ -287,17 +408,23 @@ m = g(r.sub, p.sub) && r.obj == p.obj && r.act == p.act`
 
 		// load [policy_definition]
 		policyDefinition := strings.Split(cfg.String("policy_definition::p"), ",")
+
 		fieldsNum := len(policyDefinition)
 		if fieldsNum > builtInAvailableField {
-			panic(fmt.Errorf("the maximum policy_definition field number cannot exceed %d", builtInAvailableField))
+			return nil, fmt.Errorf("the maximum policy_definition field number cannot exceed %d, got %d", builtInAvailableField, fieldsNum)
 		}
+
 		// filled empty field with "" and V5 with "permissionId"
 		for i := builtInAvailableField - fieldsNum; i > 0; i-- {
 			policyDefinition = append(policyDefinition, "")
 		}
 		policyDefinition = append(policyDefinition, "permissionId")
 
-		m, _ := model.NewModelFromString(modelText)
+		m, err := model.NewModelFromString(modelText)
+		if err != nil {
+			return nil, err
+		}
+
 		m.AddDef("p", "p", strings.Join(policyDefinition, ","))
 
 		return m, err

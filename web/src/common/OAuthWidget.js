@@ -19,6 +19,9 @@ import * as UserBackend from "../backend/UserBackend";
 import * as Setting from "../Setting";
 import * as Provider from "../auth/Provider";
 import * as AuthBackend from "../auth/AuthBackend";
+import {goToWeb3Url} from "../auth/ProviderButton";
+import AccountAvatar from "../account/AccountAvatar";
+import {WechatOfficialAccountModal} from "../auth/Util";
 
 class OAuthWidget extends React.Component {
   constructor(props) {
@@ -88,12 +91,30 @@ class OAuthWidget extends React.Component {
     return user.properties[key];
   }
 
-  unlinkUser(providerType) {
+  unlinkUser(providerType, linkedValue) {
     const body = {
       providerType: providerType,
       // should add the unlink user's info, cause the user may not be logged in, but a admin want to unlink the user.
       user: this.props.user,
     };
+    if (providerType === "MetaMask" || providerType === "Web3Onboard") {
+      import("../auth/Web3Auth")
+        .then(module => {
+          const delWeb3AuthToken = module.delWeb3AuthToken;
+          delWeb3AuthToken(linkedValue);
+          AuthBackend.unlink(body)
+            .then((res) => {
+              if (res.status === "ok") {
+                Setting.showMessage("success", "Unlinked successfully");
+
+                this.unlinked();
+              } else {
+                Setting.showMessage("error", `Failed to unlink: ${res.msg}`);
+              }
+            });
+        });
+      return;
+    }
     AuthBackend.unlink(body)
       .then((res) => {
         if (res.status === "ok") {
@@ -151,8 +172,13 @@ class OAuthWidget extends React.Component {
           </span>
         </Col>
         <Col span={24 - this.props.labelSpan} >
-          <img style={{marginRight: "10px"}} width={30} height={30} src={avatarUrl} alt={name} referrerPolicy="no-referrer" />
-          <span style={{width: this.props.labelSpan === 3 ? "300px" : "200px", display: (Setting.isMobile()) ? "inline" : "inline-block"}}>
+          <AccountAvatar style={{marginRight: "10px"}} size={30} src={avatarUrl} alt={name} referrerPolicy="no-referrer" />
+          <span style={{
+            width: this.props.labelSpan === 3 ? "300px" : "200px",
+            display: (Setting.isMobile()) ? "inline" : "inline-block",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }} title={name}>
             {
               linkedValue === "" ? (
                 `(${i18next.t("general:empty")})`
@@ -169,11 +195,25 @@ class OAuthWidget extends React.Component {
           </span>
           {
             linkedValue === "" ? (
-              <a key={provider.displayName} href={user.id !== account.id ? null : Provider.getAuthUrl(application, provider, "link")}>
-                <Button style={{marginLeft: "20px", width: linkButtonWidth}} type="primary" disabled={user.id !== account.id}>{i18next.t("user:Link")}</Button>
-              </a>
+              provider.category === "Web3" ? (
+                <Button style={{marginLeft: "20px", width: linkButtonWidth}} type="primary" disabled={user.id !== account.id} onClick={() => goToWeb3Url(application, provider, "link")}>{i18next.t("user:Link")}</Button>
+              ) : (
+                provider.type === "WeChat" && provider.clientId2 !== "" && provider.clientSecret2 !== "" && provider.disableSsl === true && !navigator.userAgent.includes("MicroMessenger") ? (
+                  <a key={provider.displayName}>
+                    <Button style={{marginLeft: "20px", width: linkButtonWidth}} type="primary" disabled={user.id !== account.id} onClick={
+                      () => {
+                        WechatOfficialAccountModal(application, provider, "link");
+                      }
+                    }>{i18next.t("user:Link")}</Button>
+                  </a>
+                ) : (
+                  <a key={provider.displayName} href={user.id !== account.id ? null : Provider.getAuthUrl(application, provider, "link")}>
+                    <Button style={{marginLeft: "20px", width: linkButtonWidth}} type="primary" disabled={user.id !== account.id}>{i18next.t("user:Link")}</Button>
+                  </a>
+                )
+              )
             ) : (
-              <Button disabled={!providerItem.canUnlink && !account.isGlobalAdmin} style={{marginLeft: "20px", width: linkButtonWidth}} onClick={() => this.unlinkUser(provider.type)}>{i18next.t("user:Unlink")}</Button>
+              <Button disabled={!providerItem.canUnlink && !Setting.isAdminUser(account)} style={{marginLeft: "20px", width: linkButtonWidth}} onClick={() => this.unlinkUser(provider.type, linkedValue)}>{i18next.t("user:Unlink")}</Button>
             )
           }
         </Col>

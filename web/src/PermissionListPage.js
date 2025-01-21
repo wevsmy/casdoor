@@ -14,23 +14,26 @@
 
 import React from "react";
 import {Link} from "react-router-dom";
-import {Button, Switch, Table} from "antd";
+import {Button, Switch, Table, Upload} from "antd";
 import moment from "moment";
 import * as Setting from "./Setting";
 import * as PermissionBackend from "./backend/PermissionBackend";
 import i18next from "i18next";
 import BaseListPage from "./BaseListPage";
-import PopconfirmModal from "./PopconfirmModal";
+import PopconfirmModal from "./common/modal/PopconfirmModal";
+import {UploadOutlined} from "@ant-design/icons";
 
 class PermissionListPage extends BaseListPage {
   newPermission() {
     const randomName = Setting.getRandomName();
+    const owner = Setting.getRequestOrganization(this.props.account);
     return {
-      owner: this.props.account.owner,
+      owner: owner,
       name: `permission_${randomName}`,
       createdTime: moment().format(),
       displayName: `New Permission - ${randomName}`,
       users: [`${this.props.account.owner}/${this.props.account.name}`],
+      groups: [],
       roles: [],
       domains: [],
       resourceType: "Application",
@@ -41,7 +44,7 @@ class PermissionListPage extends BaseListPage {
       submitter: this.props.account.name,
       approver: "",
       approveTime: "",
-      state: "Pending",
+      state: Setting.isLocalAdminUser(this.props.account) ? "Approved" : "Pending",
     };
   }
 
@@ -66,9 +69,11 @@ class PermissionListPage extends BaseListPage {
       .then((res) => {
         if (res.status === "ok") {
           Setting.showMessage("success", i18next.t("general:Successfully deleted"));
-          this.setState({
-            data: Setting.deleteRow(this.state.data, i),
-            pagination: {total: this.state.pagination.total - 1},
+          this.fetch({
+            pagination: {
+              ...this.state.pagination,
+              current: this.state.pagination.current > 1 && this.state.data.length === 1 ? this.state.pagination.current - 1 : this.state.pagination.current,
+            },
           });
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to delete")}: ${res.msg}`);
@@ -77,6 +82,41 @@ class PermissionListPage extends BaseListPage {
       .catch(error => {
         Setting.showMessage("error", `${i18next.t("general:Failed to connect to server")}: ${error}`);
       });
+  }
+
+  uploadPermissionFile(info) {
+    const {status, response: res} = info.file;
+    if (status === "done") {
+      if (res.status === "ok") {
+        Setting.showMessage("success", "Users uploaded successfully, refreshing the page");
+
+        const {pagination} = this.state;
+        this.fetch({pagination});
+      } else {
+        Setting.showMessage("error", `${i18next.t("general:Failed to sync")}: ${res.msg}`);
+      }
+    } else if (status === "error") {
+      Setting.showMessage("error", "File failed to upload");
+    }
+  }
+  renderPermissionUpload() {
+    const props = {
+      name: "file",
+      accept: ".xlsx",
+      method: "post",
+      action: `${Setting.ServerUrl}/api/upload-permissions`,
+      withCredentials: true,
+      onChange: (info) => {
+        this.uploadPermissionFile(info);
+      },
+    };
+
+    return (
+      <Upload {...props}>
+        <Button id="upload-button" type="primary" size="small">
+          <UploadOutlined /> {i18next.t("user:Upload (.xlsx)")}
+        </Button></Upload>
+    );
   }
 
   renderTable(permissions) {
@@ -92,7 +132,7 @@ class PermissionListPage extends BaseListPage {
         ...this.getColumnSearchProps("name"),
         render: (text, record, index) => {
           return (
-            <Link to={`/permissions/${record.owner}/${text}`}>
+            <Link to={`/permissions/${record.owner}/${encodeURIComponent(text)}`}>
               {text}
             </Link>
           );
@@ -140,6 +180,17 @@ class PermissionListPage extends BaseListPage {
         ...this.getColumnSearchProps("users"),
         render: (text, record, index) => {
           return Setting.getTags(text, "users");
+        },
+      },
+      {
+        title: i18next.t("role:Sub groups"),
+        dataIndex: "groups",
+        key: "groups",
+        // width: '100px',
+        sorter: true,
+        ...this.getColumnSearchProps("groups"),
+        render: (text, record, index) => {
+          return Setting.getTags(text, "groups");
         },
       },
       {
@@ -249,6 +300,13 @@ class PermissionListPage extends BaseListPage {
         filterMultiple: false,
         width: "120px",
         sorter: true,
+        render: (text, record, index) => {
+          return (
+            <Link to={`/users/${record.owner}/${encodeURIComponent(text)}`}>
+              {text}
+            </Link>
+          );
+        },
       },
       {
         title: i18next.t("permission:Approver"),
@@ -257,6 +315,13 @@ class PermissionListPage extends BaseListPage {
         filterMultiple: false,
         width: "120px",
         sorter: true,
+        render: (text, record, index) => {
+          return (
+            <Link to={`/users/${record.owner}/${encodeURIComponent(text)}`}>
+              {text}
+            </Link>
+          );
+        },
       },
       {
         title: i18next.t("permission:Approve time"),
@@ -300,7 +365,7 @@ class PermissionListPage extends BaseListPage {
         render: (text, record, index) => {
           return (
             <div>
-              <Button style={{marginTop: "10px", marginBottom: "10px", marginRight: "10px"}} type="primary" onClick={() => this.props.history.push(`/permissions/${record.owner}/${record.name}`)}>{i18next.t("general:Edit")}</Button>
+              <Button style={{marginTop: "10px", marginBottom: "10px", marginRight: "10px"}} type="primary" onClick={() => this.props.history.push(`/permissions/${record.owner}/${encodeURIComponent(record.name)}`)}>{i18next.t("general:Edit")}</Button>
               <PopconfirmModal
                 title={i18next.t("general:Sure to delete") + `: ${record.name} ?`}
                 onConfirm={() => this.deletePermission(index)}
@@ -325,7 +390,10 @@ class PermissionListPage extends BaseListPage {
           title={() => (
             <div>
               {i18next.t("general:Permissions")}&nbsp;&nbsp;&nbsp;&nbsp;
-              <Button type="primary" size="small" onClick={this.addPermission.bind(this)}>{i18next.t("general:Add")}</Button>
+              <Button id="add-button" style={{marginRight: "5px"}} type="primary" size="small" onClick={this.addPermission.bind(this)}>{i18next.t("general:Add")}</Button>
+              {
+                this.renderPermissionUpload()
+              }
             </div>
           )}
           loading={this.state.loading}
@@ -345,11 +413,13 @@ class PermissionListPage extends BaseListPage {
     this.setState({loading: true});
 
     const getPermissions = Setting.isLocalAdminUser(this.props.account) ? PermissionBackend.getPermissions : PermissionBackend.getPermissionsBySubmitter;
-    getPermissions(Setting.isAdminUser(this.props.account) ? "" : this.props.account.owner, params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
+    getPermissions(Setting.isDefaultOrganizationSelected(this.props.account) ? "" : Setting.getRequestOrganization(this.props.account), params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
       .then((res) => {
+        this.setState({
+          loading: false,
+        });
         if (res.status === "ok") {
           this.setState({
-            loading: false,
             data: res.data,
             pagination: {
               ...params.pagination,
@@ -361,9 +431,10 @@ class PermissionListPage extends BaseListPage {
         } else {
           if (Setting.isResponseDenied(res)) {
             this.setState({
-              loading: false,
               isAuthorized: false,
             });
+          } else {
+            Setting.showMessage("error", res.msg);
           }
         }
       });

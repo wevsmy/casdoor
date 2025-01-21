@@ -14,16 +14,16 @@
 
 import React from "react";
 import * as Setting from "../../Setting";
-import {Dropdown} from "antd";
+import {Dropdown, Space} from "antd";
 import "../../App.less";
 import i18next from "i18next";
 import {CheckOutlined} from "@ant-design/icons";
 import {CompactTheme, DarkTheme, Light} from "antd-token-previewer/es/icons";
 
 export const Themes = [
-  {label: "Default", key: "default", icon: <Light style={{fontSize: "24px", color: "#4d4d4d"}} />},        // i18next.t("theme:Default")
-  {label: "Dark", key: "dark", icon: <DarkTheme style={{fontSize: "24px", color: "#4d4d4d"}} />},          // i18next.t("theme:Dark")
-  {label: "Compact", key: "compact", icon: <CompactTheme style={{fontSize: "24px", color: "#4d4d4d"}} />}, // i18next.t("theme:Compact")
+  {label: "Default", key: "default", icon: <Light style={{fontSize: "24px"}} />},        // i18next.t("theme:Default")
+  {label: "Dark", key: "dark", icon: <DarkTheme style={{fontSize: "24px"}} />},          // i18next.t("theme:Dark")
+  {label: "Compact", key: "compact", icon: <CompactTheme style={{fontSize: "24px"}} />}, // i18next.t("theme:Compact")
 ];
 
 function getIcon(themeKey) {
@@ -43,10 +43,10 @@ class ThemeSelect extends React.Component {
 
   getThemeItems() {
     return Themes.map((theme) => Setting.getItem(
-      <div style={{display: "flex", justifyContent: "space-between"}}>
-        <div>{i18next.t(`theme:${theme.label}`)}</div>
+      <Space>
+        {i18next.t(`theme:${theme.label}`)}
         {this.props.themeAlgorithm.includes(theme.key) ? <CheckOutlined style={{marginLeft: "5px"}} /> : null}
-      </div>,
+      </Space>,
       theme.key, theme.icon));
   }
 

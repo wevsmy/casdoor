@@ -15,8 +15,10 @@
 package object
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -91,6 +93,8 @@ func (syncer *Syncer) setUserByKeyValue(user *User, key string, value string) {
 		user.CreatedTime = value
 	case "UpdatedTime":
 		user.UpdatedTime = value
+	case "DeletedTime":
+		user.DeletedTime = value
 	case "Id":
 		user.Id = value
 	case "Type":
@@ -153,23 +157,61 @@ func (syncer *Syncer) setUserByKeyValue(user *User, key string, value string) {
 		user.IsOnline = util.ParseBool(value)
 	case "IsAdmin":
 		user.IsAdmin = util.ParseBool(value)
-	case "IsGlobalAdmin":
-		user.IsGlobalAdmin = util.ParseBool(value)
 	case "IsForbidden":
 		user.IsForbidden = util.ParseBool(value)
 	case "IsDeleted":
 		user.IsDeleted = util.ParseBool(value)
 	case "CreatedIp":
 		user.CreatedIp = value
+	case "PreferredMfaType":
+		user.PreferredMfaType = value
+	case "TotpSecret":
+		user.TotpSecret = value
+	case "SignupApplication":
+		user.SignupApplication = value
+	case "MfaPhoneEnabled":
+		user.MfaPhoneEnabled = util.ParseBool(value)
+	case "MfaEmailEnabled":
+		user.MfaEmailEnabled = util.ParseBool(value)
+	case "RecoveryCodes":
+		user.RecoveryCodes = strings.Split(value, ",")
 	}
 }
 
-func (syncer *Syncer) getOriginalUsersFromMap(results []map[string]string) []*OriginalUser {
+func (syncer *Syncer) getUserValue(user *User, key string) string {
+	jsonData, _ := json.Marshal(user)
+	var mapData map[string]interface{}
+	if err := json.Unmarshal(jsonData, &mapData); err != nil {
+		fmt.Println("conversion failed:", err)
+		return user.Id
+	}
+	value := mapData[util.SnakeToCamel(key)]
+
+	if str, ok := value.(string); ok {
+		return str
+	} else {
+		if value != nil {
+			valType := reflect.TypeOf(value)
+
+			typeName := valType.Name()
+			switch typeName {
+			case "bool":
+				return strconv.FormatBool(value.(bool))
+			case "int":
+				return strconv.Itoa(value.(int))
+			}
+		}
+		return user.Id
+	}
+}
+
+func (syncer *Syncer) getOriginalUsersFromMap(results []map[string]sql.NullString) []*OriginalUser {
 	users := []*OriginalUser{}
 	for _, result := range results {
 		originalUser := &OriginalUser{
 			Address:    []string{},
 			Properties: map[string]string{},
+			Groups:     []string{},
 		}
 
 		for _, tableColumn := range syncer.TableColumns {
@@ -183,11 +225,11 @@ func (syncer *Syncer) getOriginalUsersFromMap(results []map[string]string) []*Or
 				names := strings.Split(tableColumnName, "+")
 				var values []string
 				for _, name := range names {
-					values = append(values, result[strings.Trim(name, " ")])
+					values = append(values, result[strings.Trim(name, " ")].String)
 				}
 				value = strings.Join(values, " ")
 			} else {
-				value = result[tableColumnName]
+				value = result[tableColumnName].String
 			}
 			syncer.setUserByKeyValue(originalUser, tableColumn.CasdoorName, value)
 		}
@@ -195,7 +237,7 @@ func (syncer *Syncer) getOriginalUsersFromMap(results []map[string]string) []*Or
 		if syncer.Type == "Keycloak" {
 			// query and set password and password salt from credential table
 			sql := fmt.Sprintf("select * from credential where type = 'password' and user_id = '%s'", originalUser.Id)
-			credentialResult, _ := syncer.Adapter.Engine.QueryString(sql)
+			credentialResult, _ := syncer.Ormer.Engine.QueryString(sql)
 			if len(credentialResult) > 0 {
 				credential := Credential{}
 				_ = json.Unmarshal([]byte(credentialResult[0]["SECRET_DATA"]), &credential)
@@ -205,7 +247,7 @@ func (syncer *Syncer) getOriginalUsersFromMap(results []map[string]string) []*Or
 			// query and set signup application from user group table
 			sql = fmt.Sprintf("select name from keycloak_group where id = "+
 				"(select group_id as gid from user_group_membership where user_id = '%s')", originalUser.Id)
-			groupResult, _ := syncer.Adapter.Engine.QueryString(sql)
+			groupResult, _ := syncer.Ormer.Engine.QueryString(sql)
 			if len(groupResult) > 0 {
 				originalUser.SignupApplication = groupResult[0]["name"]
 			}
@@ -216,9 +258,9 @@ func (syncer *Syncer) getOriginalUsersFromMap(results []map[string]string) []*Or
 			// enable
 			value, ok := result["ENABLED"]
 			if ok {
-				originalUser.IsForbidden = !util.ParseBool(value)
+				originalUser.IsForbidden = !util.ParseBool(value.String)
 			} else {
-				originalUser.IsForbidden = !util.ParseBool(result["enabled"])
+				originalUser.IsForbidden = !util.ParseBool(result["enabled"].String)
 			}
 		}
 
@@ -232,6 +274,7 @@ func (syncer *Syncer) getMapFromOriginalUser(user *OriginalUser) map[string]stri
 	m["Name"] = user.Name
 	m["CreatedTime"] = user.CreatedTime
 	m["UpdatedTime"] = user.UpdatedTime
+	m["DeletedTime"] = user.DeletedTime
 	m["Id"] = user.Id
 	m["Type"] = user.Type
 	m["Password"] = user.Password
@@ -260,10 +303,15 @@ func (syncer *Syncer) getMapFromOriginalUser(user *OriginalUser) map[string]stri
 	m["IsDefaultAvatar"] = util.BoolToString(user.IsDefaultAvatar)
 	m["IsOnline"] = util.BoolToString(user.IsOnline)
 	m["IsAdmin"] = util.BoolToString(user.IsAdmin)
-	m["IsGlobalAdmin"] = util.BoolToString(user.IsGlobalAdmin)
 	m["IsForbidden"] = util.BoolToString(user.IsForbidden)
 	m["IsDeleted"] = util.BoolToString(user.IsDeleted)
 	m["CreatedIp"] = user.CreatedIp
+	m["PreferredMfaType"] = user.PreferredMfaType
+	m["TotpSecret"] = user.TotpSecret
+	m["SignupApplication"] = user.SignupApplication
+	m["MfaPhoneEnabled"] = util.BoolToString(user.MfaPhoneEnabled)
+	m["MfaEmailEnabled"] = util.BoolToString(user.MfaEmailEnabled)
+	m["RecoveryCodes"] = strings.Join(user.RecoveryCodes, ",")
 
 	m2 := map[string]string{}
 	for _, tableColumn := range syncer.TableColumns {
@@ -286,20 +334,4 @@ func (syncer *Syncer) getSqlSetStringFromMap(m map[string]string) string {
 		tokens = append(tokens, token)
 	}
 	return strings.Join(tokens, ", ")
-}
-
-func (syncer *Syncer) getSqlKeyValueStringFromMap(m map[string]string) (string, string) {
-	typeMap := syncer.getTableColumnsTypeMap()
-
-	keys := []string{}
-	values := []string{}
-	for k, v := range m {
-		if typeMap[k] == "string" {
-			v = fmt.Sprintf("'%s'", v)
-		}
-
-		keys = append(keys, k)
-		values = append(values, v)
-	}
-	return strings.Join(keys, ", "), strings.Join(values, ", ")
 }

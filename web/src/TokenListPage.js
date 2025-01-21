@@ -20,17 +20,18 @@ import * as Setting from "./Setting";
 import * as TokenBackend from "./backend/TokenBackend";
 import i18next from "i18next";
 import BaseListPage from "./BaseListPage";
-import PopconfirmModal from "./PopconfirmModal";
+import PopconfirmModal from "./common/modal/PopconfirmModal";
 
 class TokenListPage extends BaseListPage {
   newToken() {
     const randomName = Setting.getRandomName();
+    const organizationName = Setting.getRequestOrganization(this.props.account);
     return {
       owner: "admin", // this.props.account.tokenname,
       name: `token_${randomName}`,
       createdTime: moment().format(),
       application: "app-built-in",
-      organization: "built-in",
+      organization: organizationName,
       user: "admin",
       accessToken: "",
       expiresIn: 7200,
@@ -60,9 +61,11 @@ class TokenListPage extends BaseListPage {
       .then((res) => {
         if (res.status === "ok") {
           Setting.showMessage("success", i18next.t("general:Successfully deleted"));
-          this.setState({
-            data: Setting.deleteRow(this.state.data, i),
-            pagination: {total: this.state.pagination.total - 1},
+          this.fetch({
+            pagination: {
+              ...this.state.pagination,
+              current: this.state.pagination.current > 1 && this.state.data.length === 1 ? this.state.pagination.current - 1 : this.state.pagination.current,
+            },
           });
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to delete")}: ${res.msg}`);
@@ -240,11 +243,13 @@ class TokenListPage extends BaseListPage {
     const field = params.searchedColumn, value = params.searchText;
     const sortField = params.sortField, sortOrder = params.sortOrder;
     this.setState({loading: true});
-    TokenBackend.getTokens("admin", params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
+    TokenBackend.getTokens("admin", Setting.isDefaultOrganizationSelected(this.props.account) ? "" : Setting.getRequestOrganization(this.props.account), params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
       .then((res) => {
+        this.setState({
+          loading: false,
+        });
         if (res.status === "ok") {
           this.setState({
-            loading: false,
             data: res.data,
             pagination: {
               ...params.pagination,
@@ -256,9 +261,10 @@ class TokenListPage extends BaseListPage {
         } else {
           if (Setting.isResponseDenied(res)) {
             this.setState({
-              loading: false,
               isAuthorized: false,
             });
+          } else {
+            Setting.showMessage("error", res.msg);
           }
         }
       });

@@ -18,13 +18,14 @@ type ProviderItem struct {
 	Owner string `json:"owner"`
 	Name  string `json:"name"`
 
-	CanSignUp bool      `json:"canSignUp"`
-	CanSignIn bool      `json:"canSignIn"`
-	CanUnlink bool      `json:"canUnlink"`
-	Prompted  bool      `json:"prompted"`
-	AlertType string    `json:"alertType"`
-	Rule      string    `json:"rule"`
-	Provider  *Provider `json:"provider"`
+	CanSignUp    bool      `json:"canSignUp"`
+	CanSignIn    bool      `json:"canSignIn"`
+	CanUnlink    bool      `json:"canUnlink"`
+	CountryCodes []string  `json:"countryCodes"`
+	Prompted     bool      `json:"prompted"`
+	SignupGroup  string    `json:"signupGroup"`
+	Rule         string    `json:"rule"`
+	Provider     *Provider `json:"provider"`
 }
 
 func (application *Application) GetProviderItem(providerName string) *ProviderItem {
@@ -49,7 +50,7 @@ func (pi *ProviderItem) IsProviderVisible() bool {
 	if pi.Provider == nil {
 		return false
 	}
-	return pi.Provider.Category == "OAuth" || pi.Provider.Category == "SAML"
+	return pi.Provider.Category == "OAuth" || pi.Provider.Category == "SAML" || pi.Provider.Category == "Web3"
 }
 
 func (pi *ProviderItem) isProviderPrompted() bool {

@@ -40,21 +40,35 @@ func (c *ApiController) GetApplications() {
 	sortField := c.Input().Get("sortField")
 	sortOrder := c.Input().Get("sortOrder")
 	organization := c.Input().Get("organization")
-
+	var err error
 	if limit == "" || page == "" {
 		var applications []*object.Application
 		if organization == "" {
-			applications = object.GetApplications(owner)
+			applications, err = object.GetApplications(owner)
 		} else {
-			applications = object.GetOrganizationApplications(owner, organization)
+			applications, err = object.GetOrganizationApplications(owner, organization)
 		}
-
-		c.Data["json"] = object.GetMaskedApplications(applications, userId)
-		c.ServeJSON()
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+		c.ResponseOk(object.GetMaskedApplications(applications, userId))
 	} else {
 		limit := util.ParseInt(limit)
-		paginator := pagination.SetPaginator(c.Ctx, limit, int64(object.GetApplicationCount(owner, field, value)))
-		applications := object.GetMaskedApplications(object.GetPaginationApplications(owner, paginator.Offset(), limit, field, value, sortField, sortOrder), userId)
+		count, err := object.GetApplicationCount(owner, field, value)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
+		paginator := pagination.SetPaginator(c.Ctx, limit, count)
+		application, err := object.GetPaginationApplications(owner, paginator.Offset(), limit, field, value, sortField, sortOrder)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
+		applications := object.GetMaskedApplications(application, userId)
 		c.ResponseOk(applications, paginator.Nums())
 	}
 }
@@ -70,8 +84,36 @@ func (c *ApiController) GetApplication() {
 	userId := c.GetSessionUsername()
 	id := c.Input().Get("id")
 
-	c.Data["json"] = object.GetMaskedApplication(object.GetApplication(id), userId)
-	c.ServeJSON()
+	application, err := object.GetApplication(id)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	if c.Input().Get("withKey") != "" && application != nil && application.Cert != "" {
+		cert, err := object.GetCert(util.GetId(application.Owner, application.Cert))
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
+		if cert == nil {
+			cert, err = object.GetCert(util.GetId(application.Organization, application.Cert))
+			if err != nil {
+				c.ResponseError(err.Error())
+				return
+			}
+		}
+
+		if cert != nil {
+			application.CertPublicKey = cert.Certificate
+		}
+	}
+
+	clientIp := util.GetClientIpFromRequest(c.Ctx.Request)
+	object.CheckEntryIp(clientIp, nil, application, nil, c.GetAcceptLanguage())
+
+	c.ResponseOk(object.GetMaskedApplication(application, userId))
 }
 
 // GetUserApplication
@@ -84,14 +126,28 @@ func (c *ApiController) GetApplication() {
 func (c *ApiController) GetUserApplication() {
 	userId := c.GetSessionUsername()
 	id := c.Input().Get("id")
-	user := object.GetUser(id)
+
+	user, err := object.GetUser(id)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
 	if user == nil {
 		c.ResponseError(fmt.Sprintf(c.T("general:The user: %s doesn't exist"), id))
 		return
 	}
 
-	c.Data["json"] = object.GetMaskedApplication(object.GetApplicationByUser(user), userId)
-	c.ServeJSON()
+	application, err := object.GetApplicationByUser(user)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+	if application == nil {
+		c.ResponseError(fmt.Sprintf(c.T("general:The organization: %s should have one application at least"), user.Owner))
+		return
+	}
+
+	c.ResponseOk(object.GetMaskedApplication(application, userId))
 }
 
 // GetOrganizationApplications
@@ -118,14 +174,42 @@ func (c *ApiController) GetOrganizationApplications() {
 	}
 
 	if limit == "" || page == "" {
-		var applications []*object.Application
-		applications = object.GetOrganizationApplications(owner, organization)
-		c.Data["json"] = object.GetMaskedApplications(applications, userId)
-		c.ServeJSON()
+		applications, err := object.GetOrganizationApplications(owner, organization)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
+		applications, err = object.GetAllowedApplications(applications, userId, c.GetAcceptLanguage())
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
+		c.ResponseOk(object.GetMaskedApplications(applications, userId))
 	} else {
 		limit := util.ParseInt(limit)
-		paginator := pagination.SetPaginator(c.Ctx, limit, int64(object.GetOrganizationApplicationCount(owner, organization, field, value)))
-		applications := object.GetMaskedApplications(object.GetPaginationOrganizationApplications(owner, organization, paginator.Offset(), limit, field, value, sortField, sortOrder), userId)
+
+		count, err := object.GetOrganizationApplicationCount(owner, organization, field, value)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
+		paginator := pagination.SetPaginator(c.Ctx, limit, count)
+		applications, err := object.GetPaginationOrganizationApplications(owner, organization, paginator.Offset(), limit, field, value, sortField, sortOrder)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
+		applications, err = object.GetAllowedApplications(applications, userId, c.GetAcceptLanguage())
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
+		applications = object.GetMaskedApplications(applications, userId)
 		c.ResponseOk(applications, paginator.Nums())
 	}
 }
@@ -144,6 +228,11 @@ func (c *ApiController) UpdateApplication() {
 	var application object.Application
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &application)
 	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	if err = object.CheckIpWhitelist(application.IpWhitelist, c.GetAcceptLanguage()); err != nil {
 		c.ResponseError(err.Error())
 		return
 	}
@@ -167,8 +256,18 @@ func (c *ApiController) AddApplication() {
 		return
 	}
 
-	count := object.GetApplicationCount("", "", "")
-	if err := checkQuotaForApplication(count); err != nil {
+	count, err := object.GetApplicationCount("", "", "")
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	if err := checkQuotaForApplication(int(count)); err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	if err = object.CheckIpWhitelist(application.IpWhitelist, c.GetAcceptLanguage()); err != nil {
 		c.ResponseError(err.Error())
 		return
 	}

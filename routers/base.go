@@ -16,6 +16,8 @@ package routers
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"strings"
 
 	"github.com/beego/beego/context"
@@ -33,6 +35,8 @@ type Response struct {
 }
 
 func responseError(ctx *context.Context, error string, data ...interface{}) {
+	// ctx.ResponseWriter.WriteHeader(http.StatusForbidden)
+
 	resp := Response{Status: "error", Msg: error}
 	switch len(data) {
 	case 2:
@@ -61,7 +65,7 @@ func denyRequest(ctx *context.Context) {
 	responseError(ctx, T(ctx, "auth:Unauthorized operation"))
 }
 
-func getUsernameByClientIdSecret(ctx *context.Context) string {
+func getUsernameByClientIdSecret(ctx *context.Context) (string, error) {
 	clientId, clientSecret, ok := ctx.Request.BasicAuth()
 	if !ok {
 		clientId = ctx.Input.Query("clientId")
@@ -69,15 +73,40 @@ func getUsernameByClientIdSecret(ctx *context.Context) string {
 	}
 
 	if clientId == "" || clientSecret == "" {
-		return ""
+		return "", nil
 	}
 
-	application := object.GetApplicationByClientId(clientId)
-	if application == nil || application.ClientSecret != clientSecret {
-		return ""
+	application, err := object.GetApplicationByClientId(clientId)
+	if err != nil {
+		return "", err
+	}
+	if application == nil {
+		return "", fmt.Errorf("Application not found for client ID: %s", clientId)
 	}
 
-	return fmt.Sprintf("app/%s", application.Name)
+	if application.ClientSecret != clientSecret {
+		return "", fmt.Errorf("Incorrect client secret for application: %s", application.Name)
+	}
+
+	return fmt.Sprintf("app/%s", application.Name), nil
+}
+
+func getUsernameByKeys(ctx *context.Context) (string, error) {
+	accessKey, accessSecret := getKeys(ctx)
+	user, err := object.GetUserByAccessKey(accessKey)
+	if err != nil {
+		return "", err
+	}
+
+	if user == nil {
+		return "", fmt.Errorf("user not found for access key: %s", accessKey)
+	}
+
+	if accessSecret != user.AccessSecret {
+		return "", fmt.Errorf("incorrect access secret for user: %s", user.Name)
+	}
+
+	return user.GetId(), nil
 }
 
 func getSessionUser(ctx *context.Context) string {
@@ -133,4 +162,40 @@ func parseBearerToken(ctx *context.Context) string {
 	}
 
 	return tokens[1]
+}
+
+func getHostname(s string) string {
+	if s == "" {
+		return ""
+	}
+
+	l, err := url.Parse(s)
+	if err != nil {
+		panic(err)
+	}
+
+	res := l.Hostname()
+	return res
+}
+
+func removePort(s string) string {
+	ipStr, _, err := net.SplitHostPort(s)
+	if err != nil {
+		ipStr = s
+	}
+	return ipStr
+}
+
+func isHostIntranet(s string) bool {
+	ipStr, _, err := net.SplitHostPort(s)
+	if err != nil {
+		ipStr = s
+	}
+
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return false
+	}
+
+	return ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()
 }

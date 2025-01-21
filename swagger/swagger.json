@@ -1,14 +1,18 @@
 {
     "swagger": "2.0",
     "info": {
-        "title": "Casdoor API",
-        "description": "Documentation of Casdoor API",
-        "version": "1.0.0",
+        "title": "Casdoor RESTful API",
+        "description": "Swagger Docs of Casdoor Backend API",
+        "version": "1.503.0",
         "contact": {
-            "email": "admin@casbin.org"
+            "email": "casbin@googlegroups.com"
         }
     },
     "basePath": "/",
+    "schemes": [
+        "https",
+        "http"
+    ],
     "paths": {
         "/.well-known/jwks": {
             "get": {
@@ -38,6 +42,51 @@
                         "description": "",
                         "schema": {
                             "$ref": "#/definitions/object.OidcDiscovery"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/Callback": {
+            "post": {
+                "tags": [
+                    "Callback API"
+                ],
+                "description": "Get Login Error Counts",
+                "operationId": "ApiController.Callback",
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.Userinfo"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/add-adapter": {
+            "post": {
+                "tags": [
+                    "Adapter API"
+                ],
+                "description": "add adapter",
+                "operationId": "ApiController.AddAdapter",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "The details of the adapter",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Adapter"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
                         }
                     }
                 }
@@ -99,21 +148,77 @@
                 }
             }
         },
-        "/api/add-chat": {
+        "/api/add-enforcer": {
             "post": {
                 "tags": [
-                    "Chat API"
+                    "Enforcer API"
                 ],
-                "description": "add chat",
-                "operationId": "ApiController.AddChat",
+                "description": "add enforcer",
+                "operationId": "ApiController.AddEnforcer",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "enforcer",
+                        "description": "The enforcer object",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/object.Enforcer"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/add-group": {
+            "post": {
+                "tags": [
+                    "Group API"
+                ],
+                "description": "add group",
+                "operationId": "ApiController.AddGroup",
                 "parameters": [
                     {
                         "in": "body",
                         "name": "body",
-                        "description": "The details of the chat",
+                        "description": "The details of the group",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/object.Chat"
+                            "$ref": "#/definitions/object.Group"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/add-invitation": {
+            "post": {
+                "tags": [
+                    "Invitation API"
+                ],
+                "description": "add invitation",
+                "operationId": "ApiController.AddInvitation",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "The details of the invitation",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Invitation"
                         }
                     }
                 ],
@@ -132,24 +237,16 @@
                 "tags": [
                     "Account API"
                 ],
-                "operationId": "ApiController.AddLdap"
-            }
-        },
-        "/api/add-message": {
-            "post": {
-                "tags": [
-                    "Message API"
-                ],
-                "description": "add message",
-                "operationId": "ApiController.AddMessage",
+                "description": "add ldap",
+                "operationId": "ApiController.AddLdap",
                 "parameters": [
                     {
                         "in": "body",
                         "name": "body",
-                        "description": "The details of the message",
+                        "description": "The details of the ldap",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/object.Message"
+                            "$ref": "#/definitions/object.Ldap"
                         }
                     }
                 ],
@@ -275,6 +372,62 @@
                 }
             }
         },
+        "/api/add-plan": {
+            "post": {
+                "tags": [
+                    "Plan API"
+                ],
+                "description": "add plan",
+                "operationId": "ApiController.AddPlan",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "The details of the plan",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Plan"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/add-pricing": {
+            "post": {
+                "tags": [
+                    "Pricing API"
+                ],
+                "description": "add pricing",
+                "operationId": "ApiController.AddPricing",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "The details of the pricing",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Pricing"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/add-product": {
             "post": {
                 "tags": [
@@ -331,40 +484,31 @@
                 }
             }
         },
-        "/api/add-record": {
-            "post": {
-                "tags": [
-                    "Record API"
-                ],
-                "description": "add a record",
-                "operationId": "ApiController.AddRecord",
-                "parameters": [
-                    {
-                        "in": "body",
-                        "name": "body",
-                        "description": "The details of the record",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/object.Record"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "The Response object",
-                        "schema": {
-                            "$ref": "#/definitions/controllers.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/api/add-resource": {
             "post": {
                 "tags": [
                     "Resource API"
                 ],
-                "operationId": "ApiController.AddResource"
+                "operationId": "ApiController.AddResource",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "resource",
+                        "description": "Resource object",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Resource"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success or error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
             }
         },
         "/api/add-role": {
@@ -426,6 +570,34 @@
                             "items": {
                                 "type": "string"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/add-subscription": {
+            "post": {
+                "tags": [
+                    "Subscription API"
+                ],
+                "description": "add subscription",
+                "operationId": "ApiController.AddSubscription",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "The details of the subscription",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Subscription"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
                         }
                     }
                 }
@@ -515,6 +687,22 @@
                 }
             }
         },
+        "/api/add-user-keys": {
+            "post": {
+                "tags": [
+                    "User API"
+                ],
+                "operationId": "ApiController.AddUserKeys",
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.Userinfo"
+                        }
+                    }
+                }
+            }
+        },
         "/api/add-webhook": {
             "post": {
                 "tags": [
@@ -543,136 +731,53 @@
                 }
             }
         },
-        "/api/api/get-captcha": {
-            "get": {
-                "tags": [
-                    "Login API"
-                ],
-                "operationId": "ApiController.GetCaptcha"
-            }
-        },
-        "/api/api/get-webhook-event": {
-            "get": {
-                "tags": [
-                    "GetCaptchaStatus API"
-                ],
-                "operationId": "ApiController.GetCaptchaStatus"
-            }
-        },
-        "/api/api/get-captcha-status": {
-            "get": {
-                "tags": [
-                    "GetWebhookEventType API"
-                ],
-                "operationId": "ApiController.GetWebhookEventType"
-            }
-        },
-        "/api/api/reset-email-or-phone": {
+        "/api/batch-enforce": {
             "post": {
                 "tags": [
-                    "Account API"
+                    "Enforcer API"
                 ],
-                "operationId": "ApiController.ResetEmailOrPhone"
-            }
-        },
-        "/api/api/send-email": {
-            "post": {
-                "tags": [
-                    "Service API"
-                ],
-                "description": "This API is not for Casdoor frontend to call, it is for Casdoor SDKs.",
-                "operationId": "ApiController.SendEmail",
+                "description": "Call Casbin BatchEnforce API",
+                "operationId": "ApiController.BatchEnforce",
                 "parameters": [
                     {
-                        "in": "query",
-                        "name": "clientId",
-                        "description": "The clientId of the application",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "query",
-                        "name": "clientSecret",
-                        "description": "The clientSecret of the application",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
                         "in": "body",
-                        "name": "from",
-                        "description": "Details of the email request",
+                        "name": "body",
+                        "description": "array of casbin requests",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/controllers.EmailForm"
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
                         }
+                    },
+                    {
+                        "in": "query",
+                        "name": "permissionId",
+                        "description": "permission id",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "modelId",
+                        "description": "model id",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "owner",
+                        "description": "owner",
+                        "type": "string"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "object",
+                        "description": "The Response object",
                         "schema": {
-                            "$ref": "#/definitions/Response"
+                            "$ref": "#/definitions/controllers.Response"
                         }
                     }
                 }
-            }
-        },
-        "/api/api/send-sms": {
-            "post": {
-                "tags": [
-                    "Service API"
-                ],
-                "description": "This API is not for Casdoor frontend to call, it is for Casdoor SDKs.",
-                "operationId": "ApiController.SendSms",
-                "parameters": [
-                    {
-                        "in": "query",
-                        "name": "clientId",
-                        "description": "The clientId of the application",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "query",
-                        "name": "clientSecret",
-                        "description": "The clientSecret of the application",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "body",
-                        "name": "from",
-                        "description": "Details of the sms request",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/controllers.SmsForm"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "object",
-                        "schema": {
-                            "$ref": "#/definitions/Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/api/verify-code": {
-            "post": {
-                "tags": [
-                    "Account API"
-                ],
-                "operationId": "ApiController.VerifyCode"
-            }
-        },
-        "/api/api/webhook": {
-            "post": {
-                "tags": [
-                    "HandleOfficialAccountEvent API"
-                ],
-                "operationId": "ApiController.HandleOfficialAccountEvent"
             }
         },
         "/api/buy-product": {
@@ -713,7 +818,43 @@
                 "tags": [
                     "User API"
                 ],
-                "operationId": "ApiController.CheckUserPassword"
+                "operationId": "ApiController.CheckUserPassword",
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.Userinfo"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/delete-adapter": {
+            "post": {
+                "tags": [
+                    "Adapter API"
+                ],
+                "description": "delete adapter",
+                "operationId": "ApiController.DeleteAdapter",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "The details of the adapter",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Adapter"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
             }
         },
         "/api/delete-application": {
@@ -772,21 +913,77 @@
                 }
             }
         },
-        "/api/delete-chat": {
+        "/api/delete-enforcer": {
             "post": {
                 "tags": [
-                    "Chat API"
+                    "Enforcer API"
                 ],
-                "description": "delete chat",
-                "operationId": "ApiController.DeleteChat",
+                "description": "delete enforcer",
+                "operationId": "ApiController.DeleteEnforcer",
                 "parameters": [
                     {
                         "in": "body",
                         "name": "body",
-                        "description": "The details of the chat",
+                        "description": "The enforcer object",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/object.Chat"
+                            "$ref": "#/definitions/object.Enforcer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/object.Enforcer"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/delete-group": {
+            "post": {
+                "tags": [
+                    "Group API"
+                ],
+                "description": "delete group",
+                "operationId": "ApiController.DeleteGroup",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "The details of the group",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Group"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/delete-invitation": {
+            "post": {
+                "tags": [
+                    "Invitation API"
+                ],
+                "description": "delete invitation",
+                "operationId": "ApiController.DeleteInvitation",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "The details of the invitation",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Invitation"
                         }
                     }
                 ],
@@ -805,27 +1002,36 @@
                 "tags": [
                     "Account API"
                 ],
-                "operationId": "ApiController.DeleteLdap"
-            }
-        },
-        "/api/delete-message": {
-            "post": {
-                "tags": [
-                    "Message API"
-                ],
-                "description": "delete message",
-                "operationId": "ApiController.DeleteMessage",
+                "description": "delete ldap",
+                "operationId": "ApiController.DeleteLdap",
                 "parameters": [
                     {
                         "in": "body",
                         "name": "body",
-                        "description": "The details of the message",
+                        "description": "The details of the ldap",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/object.Message"
+                            "$ref": "#/definitions/object.Ldap"
                         }
                     }
                 ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/delete-mfa/": {
+            "post": {
+                "tags": [
+                    "MFA API"
+                ],
+                "description": ": Delete MFA",
+                "operationId": "ApiController.DeleteMfa",
                 "responses": {
                     "200": {
                         "description": "The Response object",
@@ -948,6 +1154,62 @@
                 }
             }
         },
+        "/api/delete-plan": {
+            "post": {
+                "tags": [
+                    "Plan API"
+                ],
+                "description": "delete plan",
+                "operationId": "ApiController.DeletePlan",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "The details of the plan",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Plan"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/delete-pricing": {
+            "post": {
+                "tags": [
+                    "Pricing API"
+                ],
+                "description": "delete pricing",
+                "operationId": "ApiController.DeletePricing",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "The details of the pricing",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Pricing"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/delete-product": {
             "post": {
                 "tags": [
@@ -1009,7 +1271,26 @@
                 "tags": [
                     "Resource API"
                 ],
-                "operationId": "ApiController.DeleteResource"
+                "operationId": "ApiController.DeleteResource",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "resource",
+                        "description": "Resource object",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Resource"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success or error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
             }
         },
         "/api/delete-role": {
@@ -1064,6 +1345,34 @@
                             "items": {
                                 "type": "string"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/delete-subscription": {
+            "post": {
+                "tags": [
+                    "Subscription API"
+                ],
+                "description": "delete subscription",
+                "operationId": "ApiController.DeleteSubscription",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "The details of the subscription",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Subscription"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
                         }
                     }
                 }
@@ -1181,6 +1490,61 @@
                 }
             }
         },
+        "/api/enforce": {
+            "post": {
+                "tags": [
+                    "Enforcer API"
+                ],
+                "description": "Call Casbin Enforce API",
+                "operationId": "ApiController.Enforce",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "Casbin request",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "permissionId",
+                        "description": "permission id",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "modelId",
+                        "description": "model id",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "resourceId",
+                        "description": "resource id",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "owner",
+                        "description": "owner",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/get-account": {
             "get": {
                 "tags": [
@@ -1193,6 +1557,61 @@
                         "description": "The Response object",
                         "schema": {
                             "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-adapter": {
+            "get": {
+                "tags": [
+                    "Adapter API"
+                ],
+                "description": "get adapter",
+                "operationId": "ApiController.GetAdapter",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "description": "The id ( owner/name ) of the adapter",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.Adapter"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-adapters": {
+            "get": {
+                "tags": [
+                    "Adapter API"
+                ],
+                "description": "get adapters",
+                "operationId": "ApiController.GetAdapters",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "owner",
+                        "description": "The owner of adapters",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/object.Adapter"
+                            }
                         }
                     }
                 }
@@ -1246,7 +1665,7 @@
                     "200": {
                         "description": "The Response object",
                         "schema": {
-                            "$ref": "#/definitions/Response"
+                            "$ref": "#/definitions/controllers.Response"
                         }
                     }
                 }
@@ -1307,6 +1726,48 @@
                 }
             }
         },
+        "/api/get-captcha": {
+            "get": {
+                "tags": [
+                    "Login API"
+                ],
+                "operationId": "ApiController.GetCaptcha",
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.Userinfo"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-captcha-status": {
+            "get": {
+                "tags": [
+                    "Token API"
+                ],
+                "description": "Get Login Error Counts",
+                "operationId": "ApiController.GetCaptchaStatus",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "description": "The id ( owner/name ) of user",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/get-cert": {
             "get": {
                 "tags": [
@@ -1362,56 +1823,18 @@
                 }
             }
         },
-        "/api/get-chat": {
+        "/api/get-dashboard": {
             "get": {
                 "tags": [
-                    "Chat API"
+                    "System API"
                 ],
-                "description": "get chat",
-                "operationId": "ApiController.GetChat",
-                "parameters": [
-                    {
-                        "in": "query",
-                        "name": "id",
-                        "description": "The id ( owner/name ) of the chat",
-                        "required": true,
-                        "type": "string"
-                    }
-                ],
+                "description": "get information of dashboard",
+                "operationId": "ApiController.GetDashboard",
                 "responses": {
                     "200": {
                         "description": "The Response object",
                         "schema": {
-                            "$ref": "#/definitions/object.Chat"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/get-chats": {
-            "get": {
-                "tags": [
-                    "Chat API"
-                ],
-                "description": "get chats",
-                "operationId": "ApiController.GetChats",
-                "parameters": [
-                    {
-                        "in": "query",
-                        "name": "owner",
-                        "description": "The owner of chats",
-                        "required": true,
-                        "type": "string"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "The Response object",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/object.Chat"
-                            }
+                            "$ref": "#/definitions/controllers.Response"
                         }
                     }
                 }
@@ -1437,7 +1860,7 @@
                     "200": {
                         "description": "The Response object",
                         "schema": {
-                            "$ref": "#/definitions/Response"
+                            "$ref": "#/definitions/controllers.Response"
                         }
                     }
                 }
@@ -1471,6 +1894,81 @@
                         "description": "The Response object",
                         "schema": {
                             "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-enforcer": {
+            "get": {
+                "tags": [
+                    "Enforcer API"
+                ],
+                "description": "get enforcer",
+                "operationId": "ApiController.GetEnforcer",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "description": "The id ( owner/name )  of enforcer",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/object.Enforcer"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-enforcers": {
+            "get": {
+                "tags": [
+                    "Enforcer API"
+                ],
+                "description": "get enforcers",
+                "operationId": "ApiController.GetEnforcers",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "owner",
+                        "description": "The owner of enforcers",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/object.Enforcer"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-global-certs": {
+            "get": {
+                "tags": [
+                    "Cert API"
+                ],
+                "description": "get globle certs",
+                "operationId": "ApiController.GetGlobalCerts",
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/object.Cert"
+                            }
                         }
                     }
                 }
@@ -1516,42 +2014,18 @@
                 }
             }
         },
-        "/api/get-ldap": {
+        "/api/get-group": {
             "get": {
                 "tags": [
-                    "Account API"
+                    "Group API"
                 ],
-                "operationId": "ApiController.GetLdap"
-            }
-        },
-        "/api/get-ldap-users": {
-            "get": {
-                "tags": [
-                    "Account API"
-                ],
-                "operationId": "ApiController.GetLdapser"
-            }
-        },
-        "/api/get-ldaps": {
-            "get": {
-                "tags": [
-                    "Account API"
-                ],
-                "operationId": "ApiController.GetLdaps"
-            }
-        },
-        "/api/get-message": {
-            "get": {
-                "tags": [
-                    "Message API"
-                ],
-                "description": "get message",
-                "operationId": "ApiController.GetMessage",
+                "description": "get group",
+                "operationId": "ApiController.GetGroup",
                 "parameters": [
                     {
                         "in": "query",
                         "name": "id",
-                        "description": "The id ( owner/name ) of the message",
+                        "description": "The id ( owner/name ) of the group",
                         "required": true,
                         "type": "string"
                     }
@@ -1560,24 +2034,24 @@
                     "200": {
                         "description": "The Response object",
                         "schema": {
-                            "$ref": "#/definitions/object.Message"
+                            "$ref": "#/definitions/object.Group"
                         }
                     }
                 }
             }
         },
-        "/api/get-messages": {
+        "/api/get-groups": {
             "get": {
                 "tags": [
-                    "Message API"
+                    "Group API"
                 ],
-                "description": "get messages",
-                "operationId": "ApiController.GetMessages",
+                "description": "get groups",
+                "operationId": "ApiController.GetGroups",
                 "parameters": [
                     {
                         "in": "query",
                         "name": "owner",
-                        "description": "The owner of messages",
+                        "description": "The owner of groups",
                         "required": true,
                         "type": "string"
                     }
@@ -1588,7 +2062,133 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/object.Message"
+                                "$ref": "#/definitions/object.Group"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-invitation": {
+            "get": {
+                "tags": [
+                    "Invitation API"
+                ],
+                "description": "get invitation",
+                "operationId": "ApiController.GetInvitation",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "description": "The id ( owner/name ) of the invitation",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.Invitation"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-invitations": {
+            "get": {
+                "tags": [
+                    "Invitation API"
+                ],
+                "description": "get invitations",
+                "operationId": "ApiController.GetInvitations",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "owner",
+                        "description": "The owner of invitations",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/object.Invitation"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-ldap": {
+            "get": {
+                "tags": [
+                    "Account API"
+                ],
+                "description": "get ldap",
+                "operationId": "ApiController.GetLdap",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "description": "id",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.Ldap"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-ldap-users": {
+            "get": {
+                "tags": [
+                    "Account API"
+                ],
+                "description": "get ldap users",
+                "operationId": "ApiController.GetLdapser",
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.LdapResp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-ldaps": {
+            "get": {
+                "tags": [
+                    "Account API"
+                ],
+                "description": "get ldaps",
+                "operationId": "ApiController.GetLdaps",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "owner",
+                        "description": "owner",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/object.Ldap"
                             }
                         }
                     }
@@ -1699,6 +2299,35 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/object.Application"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-organization-names": {
+            "get": {
+                "tags": [
+                    "Organization API"
+                ],
+                "description": "get all organization name and displayName",
+                "operationId": "ApiController.GetOrganizationNames",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "owner",
+                        "description": "owner",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/object.Organization"
                             }
                         }
                     }
@@ -1893,6 +2522,122 @@
                 }
             }
         },
+        "/api/get-plan": {
+            "get": {
+                "tags": [
+                    "Plan API"
+                ],
+                "description": "get plan",
+                "operationId": "ApiController.GetPlan",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "description": "The id ( owner/name ) of the plan",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "includeOption",
+                        "description": "Should include plan's option",
+                        "type": "boolean"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.Plan"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-plans": {
+            "get": {
+                "tags": [
+                    "Plan API"
+                ],
+                "description": "get plans",
+                "operationId": "ApiController.GetPlans",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "owner",
+                        "description": "The owner of plans",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/object.Plan"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-pricing": {
+            "get": {
+                "tags": [
+                    "Pricing API"
+                ],
+                "description": "get pricing",
+                "operationId": "ApiController.GetPricing",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "description": "The id ( owner/name ) of the pricing",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.Pricing"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-pricings": {
+            "get": {
+                "tags": [
+                    "Pricing API"
+                ],
+                "description": "get pricings",
+                "operationId": "ApiController.GetPricings",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "owner",
+                        "description": "The owner of pricings",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/object.Pricing"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/get-product": {
             "get": {
                 "tags": [
@@ -1943,6 +2688,23 @@
                             "items": {
                                 "$ref": "#/definitions/object.Product"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-prometheus-info": {
+            "get": {
+                "tags": [
+                    "System API"
+                ],
+                "description": "get Prometheus Info",
+                "operationId": "ApiController.GetPrometheusInfo",
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.PrometheusInfo"
                         }
                     }
                 }
@@ -2003,74 +2765,30 @@
                 }
             }
         },
-        "/api/get-records": {
-            "get": {
-                "tags": [
-                    "Record API"
-                ],
-                "description": "get all records",
-                "operationId": "ApiController.GetRecords",
-                "parameters": [
-                    {
-                        "in": "query",
-                        "name": "pageSize",
-                        "description": "The size of each page",
-                        "required": true,
-                        "type": "string"
-                    },
-                    {
-                        "in": "query",
-                        "name": "p",
-                        "description": "The number of the page",
-                        "required": true,
-                        "type": "string"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "The Response object",
-                        "schema": {
-                            "$ref": "#/definitions/object.Record"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/get-records-filter": {
-            "post": {
-                "tags": [
-                    "Record API"
-                ],
-                "description": "get records by filter",
-                "operationId": "ApiController.GetRecordsByFilter",
-                "parameters": [
-                    {
-                        "in": "body",
-                        "name": "filter",
-                        "description": "filter Record message",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        },
-                        "type": "string"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "The Response object",
-                        "schema": {
-                            "$ref": "#/definitions/object.Record"
-                        }
-                    }
-                }
-            }
-        },
         "/api/get-resource": {
             "get": {
                 "tags": [
                     "Resource API"
                 ],
-                "operationId": "ApiController.GetResource"
+                "description": "get resource",
+                "operationId": "ApiController.GetResource",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "description": "The id ( owner/name ) of resource",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.Resource"
+                        }
+                    }
+                }
             }
         },
         "/api/get-resources": {
@@ -2078,7 +2796,71 @@
                 "tags": [
                     "Resource API"
                 ],
-                "operationId": "ApiController.GetResources"
+                "description": "get resources",
+                "operationId": "ApiController.GetResources",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "owner",
+                        "description": "Owner",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "user",
+                        "description": "User",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "pageSize",
+                        "description": "Page Size",
+                        "type": "integer"
+                    },
+                    {
+                        "in": "query",
+                        "name": "p",
+                        "description": "Page Number",
+                        "type": "integer"
+                    },
+                    {
+                        "in": "query",
+                        "name": "field",
+                        "description": "Field",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "value",
+                        "description": "Value",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "sortField",
+                        "description": "Sort Field",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "sortOrder",
+                        "description": "Sort Order",
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/object.Resource"
+                            }
+                        }
+                    }
+                }
             }
         },
         "/api/get-role": {
@@ -2230,6 +3012,61 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/object.User"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-subscription": {
+            "get": {
+                "tags": [
+                    "Subscription API"
+                ],
+                "description": "get subscription",
+                "operationId": "ApiController.GetSubscription",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "description": "The id ( owner/name ) of the subscription",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.Subscription"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-subscriptions": {
+            "get": {
+                "tags": [
+                    "Subscription API"
+                ],
+                "description": "get subscriptions",
+                "operationId": "ApiController.GetSubscriptions",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "owner",
+                        "description": "The owner of subscriptions",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/object.Subscription"
                             }
                         }
                     }
@@ -2389,7 +3226,6 @@
                         "in": "query",
                         "name": "id",
                         "description": "The id ( owner/name ) of the user",
-                        "required": true,
                         "type": "string"
                     },
                     {
@@ -2583,7 +3419,8 @@
                         "name": "id",
                         "description": "The id ( owner/name ) of the webhook",
                         "required": true,
-                        "type": "string"
+                        "type": "string",
+                        "default": "built-in/admin"
                     }
                 ],
                 "responses": {
@@ -2591,6 +3428,22 @@
                         "description": "The Response object",
                         "schema": {
                             "$ref": "#/definitions/object.Webhook"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/get-webhook-event": {
+            "get": {
+                "tags": [
+                    "System API"
+                ],
+                "operationId": "ApiController.GetWebhookEventType",
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.Userinfo"
                         }
                     }
                 }
@@ -2609,7 +3462,8 @@
                         "name": "owner",
                         "description": "The owner of webhooks",
                         "required": true,
-                        "type": "string"
+                        "type": "string",
+                        "default": "built-in/admin"
                     }
                 ],
                 "responses": {
@@ -2620,6 +3474,28 @@
                             "items": {
                                 "$ref": "#/definitions/object.Webhook"
                             }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "test_apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/health": {
+            "get": {
+                "tags": [
+                    "System API"
+                ],
+                "description": "check if the system is live",
+                "operationId": "ApiController.Health",
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
                         }
                     }
                 }
@@ -2752,7 +3628,7 @@
                         "description": "Login information",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/controllers.RequestForm"
+                            "$ref": "#/definitions/controllers.AuthForm"
                         }
                     }
                 ],
@@ -2760,7 +3636,7 @@
                     "200": {
                         "description": "The Response object",
                         "schema": {
-                            "$ref": "#/definitions/Response"
+                            "$ref": "#/definitions/controllers.Response"
                         }
                     }
                 }
@@ -2827,6 +3703,9 @@
         },
         "/api/login/oauth/introspect": {
             "post": {
+                "tags": [
+                    "Login API"
+                ],
                 "description": "The introspection endpoint is an OAuth 2.0 endpoint that takes a",
                 "operationId": "ApiController.IntrospectToken",
                 "parameters": [
@@ -2933,7 +3812,7 @@
             }
         },
         "/api/logout": {
-            "get": {
+            "post": {
                 "tags": [
                     "Login API"
                 ],
@@ -2967,33 +3846,49 @@
                         }
                     }
                 }
-            },
+            }
+        },
+        "/api/mfa/setup/enable": {
             "post": {
                 "tags": [
-                    "Login API"
+                    "MFA API"
                 ],
-                "description": "logout the current user",
-                "operationId": "ApiController.Logout",
-                "parameters": [
-                    {
-                        "in": "query",
-                        "name": "id_token_hint",
-                        "description": "id_token_hint",
-                        "type": "string"
-                    },
-                    {
-                        "in": "query",
-                        "name": "post_logout_redirect_uri",
-                        "description": "post_logout_redirect_uri",
-                        "type": "string"
-                    },
-                    {
-                        "in": "query",
-                        "name": "state",
-                        "description": "state",
-                        "type": "string"
+                "description": "enable totp",
+                "operationId": "ApiController.MfaSetupEnable",
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
                     }
+                }
+            }
+        },
+        "/api/mfa/setup/initiate": {
+            "post": {
+                "tags": [
+                    "MFA API"
                 ],
+                "description": "setup MFA",
+                "operationId": "ApiController.MfaSetupInitiate",
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/mfa/setup/verify": {
+            "post": {
+                "tags": [
+                    "MFA API"
+                ],
+                "description": "setup verify totp",
+                "operationId": "ApiController.MfaSetupVerify",
                 "responses": {
                     "200": {
                         "description": "The Response object",
@@ -3032,6 +3927,22 @@
                 }
             }
         },
+        "/api/reset-email-or-phone": {
+            "post": {
+                "tags": [
+                    "Account API"
+                ],
+                "operationId": "ApiController.ResetEmailOrPhone",
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.Userinfo"
+                        }
+                    }
+                }
+            }
+        },
         "/api/run-syncer": {
             "get": {
                 "tags": [
@@ -3060,12 +3971,132 @@
                 }
             }
         },
+        "/api/send-email": {
+            "post": {
+                "tags": [
+                    "Service API"
+                ],
+                "description": "This API is not for Casdoor frontend to call, it is for Casdoor SDKs.",
+                "operationId": "ApiController.SendEmail",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "clientId",
+                        "description": "The clientId of the application",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "clientSecret",
+                        "description": "The clientSecret of the application",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "from",
+                        "description": "Details of the email request",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.EmailForm"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/send-notification": {
+            "post": {
+                "tags": [
+                    "Service API"
+                ],
+                "description": "This API is not for Casdoor frontend to call, it is for Casdoor SDKs.",
+                "operationId": "ApiController.SendNotification",
+                "parameters": [
+                    {
+                        "in": "body",
+                        "name": "from",
+                        "description": "Details of the notification request",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.NotificationForm"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/send-sms": {
+            "post": {
+                "tags": [
+                    "Service API"
+                ],
+                "description": "This API is not for Casdoor frontend to call, it is for Casdoor SDKs.",
+                "operationId": "ApiController.SendSms",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "clientId",
+                        "description": "The clientId of the application",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "clientSecret",
+                        "description": "The clientSecret of the application",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "from",
+                        "description": "Details of the sms request",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.SmsForm"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/send-verification-code": {
             "post": {
                 "tags": [
                     "Verification API"
                 ],
-                "operationId": "ApiController.SendVerificationCode"
+                "operationId": "ApiController.SendVerificationCode",
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.Userinfo"
+                        }
+                    }
+                }
             }
         },
         "/api/set-password": {
@@ -3115,6 +4146,23 @@
                 }
             }
         },
+        "/api/set-preferred-mfa": {
+            "post": {
+                "tags": [
+                    "MFA API"
+                ],
+                "description": ": Set specific Mfa Preferred",
+                "operationId": "ApiController.SetPreferredMfa",
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/signup": {
             "post": {
                 "tags": [
@@ -3153,14 +4201,76 @@
                 "tags": [
                     "Account API"
                 ],
-                "operationId": "ApiController.SyncLdapUsers"
+                "description": "sync ldap users",
+                "operationId": "ApiController.SyncLdapUsers",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "description": "id",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.LdapSyncResp"
+                        }
+                    }
+                }
             }
         },
         "/api/unlink": {
             "post": {
                 "tags": [
                     "Login API"
-                ]
+                ],
+                "operationId": "ApiController.Unlink",
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.Userinfo"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/update-adapter": {
+            "post": {
+                "tags": [
+                    "Adapter API"
+                ],
+                "description": "update adapter",
+                "operationId": "ApiController.UpdateAdapter",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "description": "The id ( owner/name ) of the adapter",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "The details of the adapter",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Adapter"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
             }
         },
         "/api/update-application": {
@@ -3233,28 +4343,98 @@
                 }
             }
         },
-        "/api/update-chat": {
+        "/api/update-enforcer": {
             "post": {
                 "tags": [
-                    "Chat API"
+                    "Enforcer API"
                 ],
-                "description": "update chat",
-                "operationId": "ApiController.UpdateChat",
+                "description": "update enforcer",
+                "operationId": "ApiController.UpdateEnforcer",
                 "parameters": [
                     {
                         "in": "query",
                         "name": "id",
-                        "description": "The id ( owner/name ) of the chat",
+                        "description": "The id ( owner/name )  of enforcer",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "enforcer",
+                        "description": "The enforcer object",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "schema": {
+                            "$ref": "#/definitions/object.Enforcer"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/update-group": {
+            "post": {
+                "tags": [
+                    "Group API"
+                ],
+                "description": "update group",
+                "operationId": "ApiController.UpdateGroup",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "description": "The id ( owner/name ) of the group",
                         "required": true,
                         "type": "string"
                     },
                     {
                         "in": "body",
                         "name": "body",
-                        "description": "The details of the chat",
+                        "description": "The details of the group",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/object.Chat"
+                            "$ref": "#/definitions/object.Group"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/update-invitation": {
+            "post": {
+                "tags": [
+                    "Invitation API"
+                ],
+                "description": "update invitation",
+                "operationId": "ApiController.UpdateInvitation",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "description": "The id ( owner/name ) of the invitation",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "The details of the invitation",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Invitation"
                         }
                     }
                 ],
@@ -3273,31 +4453,16 @@
                 "tags": [
                     "Account API"
                 ],
-                "operationId": "ApiController.UpdateLdap"
-            }
-        },
-        "/api/update-message": {
-            "post": {
-                "tags": [
-                    "Message API"
-                ],
-                "description": "update message",
-                "operationId": "ApiController.UpdateMessage",
+                "description": "update ldap",
+                "operationId": "ApiController.UpdateLdap",
                 "parameters": [
-                    {
-                        "in": "query",
-                        "name": "id",
-                        "description": "The id ( owner/name ) of the message",
-                        "required": true,
-                        "type": "string"
-                    },
                     {
                         "in": "body",
                         "name": "body",
-                        "description": "The details of the message",
+                        "description": "The details of the ldap",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/object.Message"
+                            "$ref": "#/definitions/object.Ldap"
                         }
                     }
                 ],
@@ -3451,6 +4616,76 @@
                 }
             }
         },
+        "/api/update-plan": {
+            "post": {
+                "tags": [
+                    "Plan API"
+                ],
+                "description": "update plan",
+                "operationId": "ApiController.UpdatePlan",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "description": "The id ( owner/name ) of the plan",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "The details of the plan",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Plan"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/update-pricing": {
+            "post": {
+                "tags": [
+                    "Pricing API"
+                ],
+                "description": "update pricing",
+                "operationId": "ApiController.UpdatePricing",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "description": "The id ( owner/name ) of the pricing",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "The details of the pricing",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Pricing"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/update-product": {
             "post": {
                 "tags": [
@@ -3526,7 +4761,34 @@
                 "tags": [
                     "Resource API"
                 ],
-                "operationId": "ApiController.UpdateResource"
+                "description": "get resource",
+                "operationId": "ApiController.UpdateResource",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "description": "The id ( owner/name ) of resource",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "resource",
+                        "description": "The resource object",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Resource"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success or error",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
             }
         },
         "/api/update-role": {
@@ -3588,6 +4850,41 @@
                             "items": {
                                 "type": "string"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/update-subscription": {
+            "post": {
+                "tags": [
+                    "Subscription API"
+                ],
+                "description": "update subscription",
+                "operationId": "ApiController.UpdateSubscription",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "description": "The id ( owner/name ) of the subscription",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "body",
+                        "name": "body",
+                        "description": "The details of the subscription",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/object.Subscription"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
                         }
                     }
                 }
@@ -3711,7 +5008,8 @@
                         "name": "id",
                         "description": "The id ( owner/name ) of the webhook",
                         "required": true,
-                        "type": "string"
+                        "type": "string",
+                        "default": "built-in/admin"
                     },
                     {
                         "in": "body",
@@ -3738,7 +5036,76 @@
                 "tags": [
                     "Resource API"
                 ],
-                "operationId": "ApiController.UploadResource"
+                "operationId": "ApiController.UploadResource",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "owner",
+                        "description": "Owner",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "user",
+                        "description": "User",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "application",
+                        "description": "Application",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "tag",
+                        "description": "Tag",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "parent",
+                        "description": "Parent",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "fullFilePath",
+                        "description": "Full File Path",
+                        "required": true,
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "createdTime",
+                        "description": "Created Time",
+                        "type": "string"
+                    },
+                    {
+                        "in": "query",
+                        "name": "description",
+                        "description": "Description",
+                        "type": "string"
+                    },
+                    {
+                        "in": "formData",
+                        "name": "file",
+                        "description": "Resource file",
+                        "required": true,
+                        "type": "file"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "FileUrl, objectKey",
+                        "schema": {
+                            "$ref": "#/definitions/object.Resource"
+                        }
+                    }
+                }
             }
         },
         "/api/user": {
@@ -3752,7 +5119,7 @@
                     "200": {
                         "description": "The Response object",
                         "schema": {
-                            "$ref": "#/definitions/LaravelResponse"
+                            "$ref": "#/definitions/controllers.LaravelResponse"
                         }
                     }
                 }
@@ -3780,7 +5147,57 @@
                 "tags": [
                     "Verification API"
                 ],
-                "operationId": "ApiController.VerifyCaptcha"
+                "operationId": "ApiController.VerifyCaptcha",
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.Userinfo"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/verify-code": {
+            "post": {
+                "tags": [
+                    "Verification API"
+                ],
+                "operationId": "ApiController.VerifyCode",
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.Userinfo"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/verify-invitation": {
+            "get": {
+                "tags": [
+                    "Invitation API"
+                ],
+                "description": "verify invitation",
+                "operationId": "ApiController.VerifyInvitation",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "description": "The id ( owner/name ) of the invitation",
+                        "required": true,
+                        "type": "string"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
             }
         },
         "/api/webauthn/signin/begin": {
@@ -3822,7 +5239,7 @@
                     "Login API"
                 ],
                 "description": "WebAuthn Login Flow 2nd stage",
-                "operationId": "ApiController.WebAuthnSigninBegin",
+                "operationId": "ApiController.WebAuthnSigninFinish",
                 "parameters": [
                     {
                         "in": "body",
@@ -3838,7 +5255,7 @@
                     "200": {
                         "description": "\"The Response object\"",
                         "schema": {
-                            "$ref": "#/definitions/Response"
+                            "$ref": "#/definitions/controllers.Response"
                         }
                     }
                 }
@@ -3883,7 +5300,23 @@
                     "200": {
                         "description": "\"The Response object\"",
                         "schema": {
-                            "$ref": "#/definitions/Response"
+                            "$ref": "#/definitions/controllers.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/webhook": {
+            "post": {
+                "tags": [
+                    "System API"
+                ],
+                "operationId": "ApiController.HandleOfficialAccountEvent",
+                "responses": {
+                    "200": {
+                        "description": "The Response object",
+                        "schema": {
+                            "$ref": "#/definitions/object.Userinfo"
                         }
                     }
                 }
@@ -3891,20 +5324,12 @@
         }
     },
     "definitions": {
-        "2306.0xc0004a1410.false": {
-            "title": "false",
+        "casbin.Enforcer": {
+            "title": "Enforcer",
             "type": "object"
         },
-        "2340.0xc0004a1440.false": {
-            "title": "false",
-            "type": "object"
-        },
-        "LaravelResponse": {
-            "title": "LaravelResponse",
-            "type": "object"
-        },
-        "Response": {
-            "title": "Response",
+        "controllers.AuthForm": {
+            "title": "AuthForm",
             "type": "object"
         },
         "controllers.EmailForm": {
@@ -3931,95 +5356,71 @@
                 }
             }
         },
-        "controllers.RequestForm": {
-            "title": "RequestForm",
+        "controllers.LaravelResponse": {
+            "title": "LaravelResponse",
             "type": "object",
             "properties": {
-                "affiliation": {
-                    "type": "string"
-                },
-                "application": {
-                    "type": "string"
-                },
-                "autoSignin": {
-                    "type": "boolean"
-                },
-                "captchaToken": {
-                    "type": "string"
-                },
-                "captchaType": {
-                    "type": "string"
-                },
-                "clientId": {
-                    "type": "string"
-                },
-                "clientSecret": {
-                    "type": "string"
-                },
-                "code": {
-                    "type": "string"
-                },
-                "countryCode": {
+                "created_at": {
                     "type": "string"
                 },
                 "email": {
                     "type": "string"
                 },
-                "emailCode": {
+                "email_verified_at": {
                     "type": "string"
                 },
-                "firstName": {
-                    "type": "string"
-                },
-                "idCard": {
-                    "type": "string"
-                },
-                "lastName": {
-                    "type": "string"
-                },
-                "method": {
+                "id": {
                     "type": "string"
                 },
                 "name": {
                     "type": "string"
                 },
-                "organization": {
+                "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "controllers.LdapResp": {
+            "title": "LdapResp",
+            "type": "object",
+            "properties": {
+                "existUuids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
-                "password": {
-                    "type": "string"
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/object.LdapUser"
+                    }
+                }
+            }
+        },
+        "controllers.LdapSyncResp": {
+            "title": "LdapSyncResp",
+            "type": "object",
+            "properties": {
+                "exist": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/object.LdapUser"
+                    }
                 },
-                "phone": {
-                    "type": "string"
-                },
-                "phoneCode": {
-                    "type": "string"
-                },
-                "provider": {
-                    "type": "string"
-                },
-                "redirectUri": {
-                    "type": "string"
-                },
-                "region": {
-                    "type": "string"
-                },
-                "relayState": {
-                    "type": "string"
-                },
-                "samlRequest": {
-                    "type": "string"
-                },
-                "samlResponse": {
-                    "type": "string"
-                },
-                "state": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                },
-                "username": {
+                "failed": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/object.LdapUser"
+                    }
+                }
+            }
+        },
+        "controllers.NotificationForm": {
+            "title": "NotificationForm",
+            "type": "object",
+            "properties": {
+                "content": {
                     "type": "string"
                 }
             }
@@ -4029,10 +5430,16 @@
             "type": "object",
             "properties": {
                 "data": {
-                    "$ref": "#/definitions/2306.0xc0004a1410.false"
+                    "additionalProperties": {
+                        "description": "support string, struct or []struct",
+                        "type": "string"
+                    }
                 },
                 "data2": {
-                    "$ref": "#/definitions/2340.0xc0004a1440.false"
+                    "additionalProperties": {
+                        "description": "support string, struct or []struct",
+                        "type": "string"
+                    }
                 },
                 "msg": {
                     "type": "string"
@@ -4070,6 +5477,14 @@
             "title": "JSONWebKey",
             "type": "object"
         },
+        "model.Model": {
+            "title": "Model",
+            "type": "object"
+        },
+        "object": {
+            "title": "object",
+            "type": "object"
+        },
         "object.AccountItem": {
             "title": "AccountItem",
             "type": "object",
@@ -4092,16 +5507,41 @@
             "title": "Adapter",
             "type": "object",
             "properties": {
-                "Engine": {
-                    "$ref": "#/definitions/xorm.Engine"
-                },
-                "dataSourceName": {
+                "createdTime": {
                     "type": "string"
                 },
-                "dbName": {
+                "database": {
                     "type": "string"
                 },
-                "driverName": {
+                "databaseType": {
+                    "type": "string"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "table": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "useSameDb": {
+                    "type": "boolean"
+                },
+                "user": {
                     "type": "string"
                 }
             }
@@ -4114,6 +5554,9 @@
                     "type": "string"
                 },
                 "cert": {
+                    "type": "string"
+                },
+                "certPublicKey": {
                     "type": "string"
                 },
                 "clientId": {
@@ -4143,7 +5586,13 @@
                 "enablePassword": {
                     "type": "boolean"
                 },
+                "enableSamlC14n10": {
+                    "type": "boolean"
+                },
                 "enableSamlCompress": {
+                    "type": "boolean"
+                },
+                "enableSamlPostBinding": {
                     "type": "boolean"
                 },
                 "enableSignUp": {
@@ -4159,6 +5608,14 @@
                     "type": "integer",
                     "format": "int64"
                 },
+                "failedSigninFrozenTime": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "failedSigninLimit": {
+                    "type": "integer",
+                    "format": "int64"
+                },
                 "forgetUrl": {
                     "type": "string"
                 },
@@ -4166,6 +5623,9 @@
                     "type": "string"
                 },
                 "formCss": {
+                    "type": "string"
+                },
+                "formCssMobile": {
                     "type": "string"
                 },
                 "formOffset": {
@@ -4184,10 +5644,19 @@
                 "homepageUrl": {
                     "type": "string"
                 },
+                "invitationCodes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "logo": {
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "orgChoiceMode": {
                     "type": "string"
                 },
                 "organization": {
@@ -4215,11 +5684,23 @@
                     "type": "integer",
                     "format": "int64"
                 },
+                "samlAttributes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/object.SamlItem"
+                    }
+                },
                 "samlReplyUrl": {
                     "type": "string"
                 },
                 "signinHtml": {
                     "type": "string"
+                },
+                "signinMethods": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/object.SigninMethod"
+                    }
                 },
                 "signinUrl": {
                     "type": "string"
@@ -4236,11 +5717,23 @@
                 "signupUrl": {
                     "type": "string"
                 },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "termsOfUse": {
                     "type": "string"
                 },
                 "themeData": {
                     "$ref": "#/definitions/object.ThemeData"
+                },
+                "tokenFields": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "tokenFormat": {
                     "type": "string"
@@ -4251,12 +5744,6 @@
             "title": "Cert",
             "type": "object",
             "properties": {
-                "authorityPublicKey": {
-                    "type": "string"
-                },
-                "authorityRootPublicKey": {
-                    "type": "string"
-                },
                 "bitSize": {
                     "type": "integer",
                     "format": "int64"
@@ -4294,11 +5781,68 @@
                 }
             }
         },
-        "object.Chat": {
-            "title": "Chat",
+        "object.Enforcer": {
+            "title": "Enforcer",
             "type": "object",
             "properties": {
-                "category": {
+                "adapter": {
+                    "type": "string"
+                },
+                "createdTime": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "displayName": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "modelCfg": {
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "updatedTime": {
+                    "type": "string"
+                }
+            }
+        },
+        "object.GaugeVecInfo": {
+            "title": "GaugeVecInfo",
+            "type": "object",
+            "properties": {
+                "method": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "throughput": {
+                    "type": "number",
+                    "format": "double"
+                }
+            }
+        },
+        "object.Group": {
+            "title": "Group",
+            "type": "object",
+            "properties": {
+                "children": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/object.Group"
+                    }
+                },
+                "contactEmail": {
                     "type": "string"
                 },
                 "createdTime": {
@@ -4307,17 +5851,28 @@
                 "displayName": {
                     "type": "string"
                 },
-                "messageCount": {
-                    "type": "integer",
-                    "format": "int64"
+                "isEnabled": {
+                    "type": "boolean"
+                },
+                "isTopGroup": {
+                    "type": "boolean"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "manager": {
+                    "type": "string"
                 },
                 "name": {
                     "type": "string"
                 },
-                "organization": {
+                "owner": {
                     "type": "string"
                 },
-                "owner": {
+                "parentId": {
+                    "type": "string"
+                },
+                "title": {
                     "type": "string"
                 },
                 "type": {
@@ -4326,16 +5881,10 @@
                 "updatedTime": {
                     "type": "string"
                 },
-                "user1": {
-                    "type": "string"
-                },
-                "user2": {
-                    "type": "string"
-                },
                 "users": {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/object.User"
                     }
                 }
             }
@@ -4348,6 +5897,25 @@
                     "type": "string"
                 },
                 "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "object.HistogramVecInfo": {
+            "title": "HistogramVecInfo",
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "latency": {
+                    "type": "string"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 }
             }
@@ -4400,6 +5968,169 @@
                 }
             }
         },
+        "object.Invitation": {
+            "title": "Invitation",
+            "type": "object",
+            "properties": {
+                "application": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "createdTime": {
+                    "type": "string"
+                },
+                "displayName": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "quota": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "signupGroup": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "updatedTime": {
+                    "type": "string"
+                },
+                "usedCount": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "object.Ldap": {
+            "title": "Ldap",
+            "type": "object",
+            "properties": {
+                "autoSync": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "baseDn": {
+                    "type": "string"
+                },
+                "createdTime": {
+                    "type": "string"
+                },
+                "enableSsl": {
+                    "type": "boolean"
+                },
+                "filter": {
+                    "type": "string"
+                },
+                "filterFields": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "host": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "lastSync": {
+                    "type": "string"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "serverName": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "object.LdapUser": {
+            "title": "LdapUser",
+            "type": "object",
+            "properties": {
+                "EmailAddress": {
+                    "type": "string"
+                },
+                "Mail": {
+                    "type": "string"
+                },
+                "MobileTelephoneNumber": {
+                    "type": "string"
+                },
+                "PostalAddress": {
+                    "type": "string"
+                },
+                "RegisteredAddress": {
+                    "type": "string"
+                },
+                "TelephoneNumber": {
+                    "type": "string"
+                },
+                "address": {
+                    "type": "string"
+                },
+                "cn": {
+                    "type": "string"
+                },
+                "displayName": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "gidNumber": {
+                    "type": "string"
+                },
+                "groupId": {
+                    "type": "string"
+                },
+                "memberOf": {
+                    "type": "string"
+                },
+                "mobile": {
+                    "type": "string"
+                },
+                "uid": {
+                    "type": "string"
+                },
+                "uidNumber": {
+                    "type": "string"
+                },
+                "userPrincipalName": {
+                    "type": "string"
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
         "object.ManagedAccount": {
             "title": "ManagedAccount",
             "type": "object",
@@ -4418,29 +6149,44 @@
                 }
             }
         },
-        "object.Message": {
-            "title": "Message",
+        "object.MfaItem": {
+            "title": "MfaItem",
             "type": "object",
             "properties": {
-                "author": {
-                    "type": "string"
-                },
-                "chat": {
-                    "type": "string"
-                },
-                "createdTime": {
-                    "type": "string"
-                },
                 "name": {
                     "type": "string"
                 },
-                "organization": {
+                "rule": {
+                    "type": "string"
+                }
+            }
+        },
+        "object.MfaProps": {
+            "title": "MfaProps",
+            "type": "object",
+            "properties": {
+                "countryCode": {
                     "type": "string"
                 },
-                "owner": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "isPreferred": {
+                    "type": "boolean"
+                },
+                "mfaType": {
                     "type": "string"
                 },
-                "text": {
+                "recoveryCodes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "secret": {
+                    "type": "string"
+                },
+                "url": {
                     "type": "string"
                 }
             }
@@ -4452,11 +6198,11 @@
                 "createdTime": {
                     "type": "string"
                 },
-                "displayName": {
+                "description": {
                     "type": "string"
                 },
-                "isEnabled": {
-                    "type": "boolean"
+                "displayName": {
+                    "type": "string"
                 },
                 "modelText": {
                     "type": "string"
@@ -4572,6 +6318,9 @@
                 "defaultAvatar": {
                     "type": "string"
                 },
+                "defaultPassword": {
+                    "type": "string"
+                },
                 "displayName": {
                     "type": "string"
                 },
@@ -4597,11 +6346,26 @@
                 "masterPassword": {
                     "type": "string"
                 },
+                "masterVerificationCode": {
+                    "type": "string"
+                },
+                "mfaItems": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/object.MfaItem"
+                    }
+                },
                 "name": {
                     "type": "string"
                 },
                 "owner": {
                     "type": "string"
+                },
+                "passwordOptions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "passwordSalt": {
                     "type": "string"
@@ -4619,6 +6383,24 @@
                     "$ref": "#/definitions/object.ThemeData"
                 },
                 "websiteUrl": {
+                    "type": "string"
+                }
+            }
+        },
+        "object.Ormer": {
+            "title": "Ormer",
+            "type": "object",
+            "properties": {
+                "Engine": {
+                    "$ref": "#/definitions/xorm.Engine"
+                },
+                "dataSourceName": {
+                    "type": "string"
+                },
+                "dbName": {
+                    "type": "string"
+                },
+                "driverName": {
                     "type": "string"
                 }
             }
@@ -4660,7 +6442,7 @@
                 "name": {
                     "type": "string"
                 },
-                "organization": {
+                "outOrderId": {
                     "type": "string"
                 },
                 "owner": {
@@ -4698,6 +6480,9 @@
                     "type": "string"
                 },
                 "state": {
+                    "$ref": "#/definitions/pp.PaymentState"
+                },
+                "successUrl": {
                     "type": "string"
                 },
                 "tag": {
@@ -4733,6 +6518,9 @@
                 "createdTime": {
                     "type": "string"
                 },
+                "description": {
+                    "type": "string"
+                },
                 "displayName": {
                     "type": "string"
                 },
@@ -4744,6 +6532,12 @@
                 },
                 "effect": {
                     "type": "string"
+                },
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "isEnabled": {
                     "type": "boolean"
@@ -4783,6 +6577,95 @@
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "object.Plan": {
+            "title": "Plan",
+            "type": "object",
+            "properties": {
+                "createdTime": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "displayName": {
+                    "type": "string"
+                },
+                "isEnabled": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "paymentProviders": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "period": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "number",
+                    "format": "double"
+                },
+                "product": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "object.Pricing": {
+            "title": "Pricing",
+            "type": "object",
+            "properties": {
+                "application": {
+                    "type": "string"
+                },
+                "createdTime": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "displayName": {
+                    "type": "string"
+                },
+                "isEnabled": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "plans": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "trialDuration": {
+                    "type": "integer",
+                    "format": "int64"
                 }
             }
         },
@@ -4849,6 +6732,28 @@
                 }
             }
         },
+        "object.PrometheusInfo": {
+            "title": "PrometheusInfo",
+            "type": "object",
+            "properties": {
+                "apiLatency": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/object.HistogramVecInfo"
+                    }
+                },
+                "apiThroughput": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/object.GaugeVecInfo"
+                    }
+                },
+                "totalThroughput": {
+                    "type": "number",
+                    "format": "double"
+                }
+            }
+        },
         "object.Provider": {
             "title": "Provider",
             "type": "object",
@@ -4887,9 +6792,6 @@
                     "type": "string"
                 },
                 "customLogo": {
-                    "type": "string"
-                },
-                "customScope": {
                     "type": "string"
                 },
                 "customTokenUrl": {
@@ -4953,6 +6855,9 @@
                 "regionId": {
                     "type": "string"
                 },
+                "scopes": {
+                    "type": "string"
+                },
                 "signName": {
                     "type": "string"
                 },
@@ -4967,6 +6872,11 @@
                 },
                 "type": {
                     "type": "string"
+                },
+                "userMapping": {
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -4974,9 +6884,6 @@
             "title": "ProviderItem",
             "type": "object",
             "properties": {
-                "alertType": {
-                    "type": "string"
-                },
                 "canSignIn": {
                     "type": "boolean"
                 },
@@ -5000,45 +6907,54 @@
                 },
                 "rule": {
                     "type": "string"
+                },
+                "signupGroup": {
+                    "type": "string"
                 }
             }
         },
-        "object.Record": {
-            "title": "Record",
+        "object.Resource": {
+            "title": "Resource",
             "type": "object",
             "properties": {
-                "action": {
-                    "type": "string"
-                },
-                "clientIp": {
+                "application": {
                     "type": "string"
                 },
                 "createdTime": {
                     "type": "string"
                 },
-                "extendedUser": {
-                    "$ref": "#/definitions/object.User"
+                "description": {
+                    "type": "string"
                 },
-                "id": {
+                "fileFormat": {
+                    "type": "string"
+                },
+                "fileName": {
+                    "type": "string"
+                },
+                "fileSize": {
                     "type": "integer",
                     "format": "int64"
                 },
-                "isTriggered": {
-                    "type": "boolean"
-                },
-                "method": {
+                "fileType": {
                     "type": "string"
                 },
                 "name": {
                     "type": "string"
                 },
-                "organization": {
-                    "type": "string"
-                },
                 "owner": {
                     "type": "string"
                 },
-                "requestUri": {
+                "parent": {
+                    "type": "string"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "tag": {
+                    "type": "string"
+                },
+                "url": {
                     "type": "string"
                 },
                 "user": {
@@ -5053,10 +6969,19 @@
                 "createdTime": {
                     "type": "string"
                 },
+                "description": {
+                    "type": "string"
+                },
                 "displayName": {
                     "type": "string"
                 },
                 "domains": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "groups": {
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -5085,15 +7010,54 @@
                 }
             }
         },
-        "object.SignupItem": {
-            "title": "SignupItem",
+        "object.SamlItem": {
+            "title": "SamlItem",
             "type": "object",
             "properties": {
                 "name": {
                     "type": "string"
                 },
+                "nameFormat": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "object.SigninMethod": {
+            "title": "SigninMethod",
+            "type": "object",
+            "properties": {
+                "displayName": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "rule": {
+                    "type": "string"
+                }
+            }
+        },
+        "object.SignupItem": {
+            "title": "SignupItem",
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "placeholder": {
+                    "type": "string"
+                },
                 "prompted": {
                     "type": "boolean"
+                },
+                "regex": {
+                    "type": "string"
                 },
                 "required": {
                     "type": "boolean"
@@ -5105,6 +7069,66 @@
                     "type": "boolean"
                 }
             }
+        },
+        "object.Subscription": {
+            "title": "Subscription",
+            "type": "object",
+            "properties": {
+                "createdTime": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "displayName": {
+                    "type": "string"
+                },
+                "endTime": {
+                    "type": "string",
+                    "format": "datetime"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "payment": {
+                    "type": "string"
+                },
+                "period": {
+                    "type": "string"
+                },
+                "plan": {
+                    "type": "string"
+                },
+                "pricing": {
+                    "type": "string"
+                },
+                "startTime": {
+                    "type": "string",
+                    "format": "datetime"
+                },
+                "state": {
+                    "$ref": "#/definitions/object.SubscriptionState"
+                },
+                "user": {
+                    "type": "string"
+                }
+            }
+        },
+        "object.SubscriptionState": {
+            "title": "SubscriptionState",
+            "type": "string",
+            "enum": [
+                "SubStatePending = \"Pending\"",
+                "SubStateError = \"Error\"",
+                "SubStateSuspended = \"Suspended\"",
+                "SubStateActive = \"Active\"",
+                "SubStateUpcoming = \"Upcoming\"",
+                "SubStateExpired = \"Expired\""
+            ],
+            "example": "Pending"
         },
         "object.Syncer": {
             "title": "Syncer",
@@ -5134,6 +7158,9 @@
                 "isEnabled": {
                     "type": "boolean"
                 },
+                "isReadOnly": {
+                    "type": "boolean"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -5150,6 +7177,9 @@
                     "type": "integer",
                     "format": "int64"
                 },
+                "sslMode": {
+                    "type": "string"
+                },
                 "syncInterval": {
                     "type": "integer",
                     "format": "int64"
@@ -5162,9 +7192,6 @@
                     "items": {
                         "$ref": "#/definitions/object.TableColumn"
                     }
-                },
-                "tablePrimaryKey": {
-                    "type": "string"
                 },
                 "type": {
                     "type": "string"
@@ -5182,6 +7209,9 @@
                     "type": "string"
                 },
                 "isHashed": {
+                    "type": "boolean"
+                },
+                "isKey": {
                     "type": "boolean"
                 },
                 "name": {
@@ -5227,6 +7257,9 @@
                 "accessToken": {
                     "type": "string"
                 },
+                "accessTokenHash": {
+                    "type": "string"
+                },
                 "application": {
                     "type": "string"
                 },
@@ -5260,6 +7293,9 @@
                     "type": "string"
                 },
                 "refreshToken": {
+                    "type": "string"
+                },
+                "refreshTokenHash": {
                     "type": "string"
                 },
                 "scope": {
@@ -5314,6 +7350,12 @@
             "title": "User",
             "type": "object",
             "properties": {
+                "accessKey": {
+                    "type": "string"
+                },
+                "accessSecret": {
+                    "type": "string"
+                },
                 "address": {
                     "type": "array",
                     "items": {
@@ -5341,7 +7383,13 @@
                 "avatar": {
                     "type": "string"
                 },
+                "avatarType": {
+                    "type": "string"
+                },
                 "azuread": {
+                    "type": "string"
+                },
+                "azureadb2c": {
                     "type": "string"
                 },
                 "baidu": {
@@ -5401,6 +7449,9 @@
                 "displayName": {
                     "type": "string"
                 },
+                "deletedTime": {
+                    "type": "string"
+                },
                 "douyin": {
                     "type": "string"
                 },
@@ -5417,6 +7468,9 @@
                     "type": "boolean"
                 },
                 "eveonline": {
+                    "type": "string"
+                },
+                "externalId": {
                     "type": "string"
                 },
                 "facebook": {
@@ -5445,6 +7499,12 @@
                 },
                 "google": {
                     "type": "string"
+                },
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "hash": {
                     "type": "string"
@@ -5488,9 +7548,6 @@
                 "isForbidden": {
                     "type": "boolean"
                 },
-                "isGlobalAdmin": {
-                    "type": "boolean"
-                },
                 "isOnline": {
                     "type": "boolean"
                 },
@@ -5500,6 +7557,9 @@
                 "karma": {
                     "type": "integer",
                     "format": "int64"
+                },
+                "kwai": {
+                    "type": "string"
                 },
                 "language": {
                     "type": "string"
@@ -5546,8 +7606,23 @@
                 "meetup": {
                     "type": "string"
                 },
+                "metamask": {
+                    "type": "string"
+                },
+                "mfaEmailEnabled": {
+                    "type": "boolean"
+                },
+                "mfaPhoneEnabled": {
+                    "type": "boolean"
+                },
                 "microsoftonline": {
                     "type": "string"
+                },
+                "multiFactorAuths": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/object.MfaProps"
+                    }
                 },
                 "name": {
                     "type": "string"
@@ -5576,6 +7651,9 @@
                 "passwordSalt": {
                     "type": "string"
                 },
+                "passwordType": {
+                    "type": "string"
+                },
                 "patreon": {
                     "type": "string"
                 },
@@ -5597,6 +7675,9 @@
                 "preHash": {
                     "type": "string"
                 },
+                "preferredMfaType": {
+                    "type": "string"
+                },
                 "properties": {
                     "additionalProperties": {
                         "type": "string"
@@ -5608,6 +7689,12 @@
                 "ranking": {
                     "type": "integer",
                     "format": "int64"
+                },
+                "recoveryCodes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "region": {
                     "type": "string"
@@ -5662,6 +7749,9 @@
                 "title": {
                     "type": "string"
                 },
+                "totpSecret": {
+                    "type": "string"
+                },
                 "tumblr": {
                     "type": "string"
                 },
@@ -5684,6 +7774,9 @@
                     "type": "string"
                 },
                 "vk": {
+                    "type": "string"
+                },
+                "web3onboard": {
                     "type": "string"
                 },
                 "webauthnCredentials": {
@@ -5733,6 +7826,15 @@
                 },
                 "email": {
                     "type": "string"
+                },
+                "email_verified": {
+                    "type": "boolean"
+                },
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "iss": {
                     "type": "string"
@@ -5799,6 +7901,18 @@
                 }
             }
         },
+        "pp.PaymentState": {
+            "title": "PaymentState",
+            "type": "string",
+            "enum": [
+                "PaymentStatePaid = \"Paid\"",
+                "PaymentStateCreated = \"Created\"",
+                "PaymentStateCanceled = \"Canceled\"",
+                "PaymentStateTimeout = \"Timeout\"",
+                "PaymentStateError = \"Error\""
+            ],
+            "example": "Paid"
+        },
         "protocol.CredentialAssertion": {
             "title": "CredentialAssertion",
             "type": "object"
@@ -5859,6 +7973,17 @@
         "xorm.Engine": {
             "title": "Engine",
             "type": "object"
+        },
+        "xormadapter.Adapter": {
+            "title": "Adapter",
+            "type": "object"
+        }
+    },
+    "securityDefinitions": {
+        "AccessToken": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }

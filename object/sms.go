@@ -24,8 +24,10 @@ func getSmsClient(provider *Provider) (sender.SmsClient, error) {
 	var client sender.SmsClient
 	var err error
 
-	if provider.Type == sender.HuaweiCloud {
+	if provider.Type == sender.HuaweiCloud || provider.Type == sender.AzureACS {
 		client, err = sender.NewSmsClient(provider.Type, provider.ClientId, provider.ClientSecret, provider.SignName, provider.TemplateCode, provider.ProviderUrl, provider.AppId)
+	} else if provider.Type == "Custom HTTP SMS" {
+		client, err = newHttpSmsClient(provider.Endpoint, provider.Method, provider.Title, provider.TemplateCode)
 	} else {
 		client, err = sender.NewSmsClient(provider.Type, provider.ClientId, provider.ClientSecret, provider.SignName, provider.TemplateCode, provider.AppId)
 	}
@@ -42,7 +44,11 @@ func SendSms(provider *Provider, content string, phoneNumbers ...string) error {
 		return err
 	}
 
-	if provider.Type == sender.Aliyun {
+	if provider.Type == sender.Twilio {
+		if provider.AppId != "" {
+			phoneNumbers = append([]string{provider.AppId}, phoneNumbers...)
+		}
+	} else if provider.Type == sender.Aliyun {
 		for i, number := range phoneNumbers {
 			phoneNumbers[i] = strings.TrimPrefix(number, "+86")
 		}

@@ -15,19 +15,25 @@
 package object
 
 import (
+	"sort"
+	"strings"
+
 	"github.com/casdoor/casdoor/util"
 	"github.com/casdoor/casdoor/xlsx"
 )
 
-func getUserMap(owner string) map[string]*User {
+func getUserMap(owner string) (map[string]*User, error) {
 	m := map[string]*User{}
 
-	users := GetUsers(owner)
+	users, err := GetUsers(owner)
+	if err != nil {
+		return m, err
+	}
 	for _, user := range users {
 		m[user.GetId()] = user
 	}
 
-	return m
+	return m, nil
 }
 
 func parseLineItem(line *[]string, i int) string {
@@ -47,12 +53,37 @@ func parseLineItemBool(line *[]string, i int) bool {
 	return parseLineItemInt(line, i) != 0
 }
 
-func UploadUsers(owner string, fileId string) bool {
-	table := xlsx.ReadXlsxFile(fileId)
+func parseListItem(lines *[]string, i int) []string {
+	if i >= len(*lines) {
+		return nil
+	}
+	line := (*lines)[i]
+	items := strings.Split(line, ";")
+	trimmedItems := make([]string, 0, len(items))
 
-	oldUserMap := getUserMap(owner)
+	for _, item := range items {
+		trimmedItem := strings.TrimSpace(item)
+		if trimmedItem != "" {
+			trimmedItems = append(trimmedItems, trimmedItem)
+		}
+	}
+
+	sort.Strings(trimmedItems)
+
+	return trimmedItems
+}
+
+func UploadUsers(owner string, path string) (bool, error) {
+	table := xlsx.ReadXlsxFile(path)
+
+	oldUserMap, err := getUserMap(owner)
+	if err != nil {
+		return false, err
+	}
+
 	newUsers := []*User{}
 	for index, line := range table {
+		line := line
 		if index == 0 || parseLineItem(&line, 0) == "" {
 			continue
 		}
@@ -93,17 +124,17 @@ func UploadUsers(owner string, fileId string) bool {
 			IsDefaultAvatar:   false,
 			IsOnline:          parseLineItemBool(&line, 31),
 			IsAdmin:           parseLineItemBool(&line, 32),
-			IsGlobalAdmin:     parseLineItemBool(&line, 33),
-			IsForbidden:       parseLineItemBool(&line, 34),
-			IsDeleted:         parseLineItemBool(&line, 35),
-			SignupApplication: parseLineItem(&line, 36),
+			IsForbidden:       parseLineItemBool(&line, 33),
+			IsDeleted:         parseLineItemBool(&line, 34),
+			SignupApplication: parseLineItem(&line, 35),
 			Hash:              "",
 			PreHash:           "",
-			CreatedIp:         parseLineItem(&line, 37),
-			LastSigninTime:    parseLineItem(&line, 38),
-			LastSigninIp:      parseLineItem(&line, 39),
+			CreatedIp:         parseLineItem(&line, 36),
+			LastSigninTime:    parseLineItem(&line, 37),
+			LastSigninIp:      parseLineItem(&line, 38),
 			Ldap:              "",
 			Properties:        map[string]string{},
+			DeletedTime:       parseLineItem(&line, 39),
 		}
 
 		if _, ok := oldUserMap[user.GetId()]; !ok {
@@ -112,7 +143,8 @@ func UploadUsers(owner string, fileId string) bool {
 	}
 
 	if len(newUsers) == 0 {
-		return false
+		return false, nil
 	}
+
 	return AddUsersInBatch(newUsers)
 }

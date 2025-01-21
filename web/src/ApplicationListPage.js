@@ -21,25 +21,21 @@ import * as Setting from "./Setting";
 import * as ApplicationBackend from "./backend/ApplicationBackend";
 import i18next from "i18next";
 import BaseListPage from "./BaseListPage";
-import PopconfirmModal from "./PopconfirmModal";
+import PopconfirmModal from "./common/modal/PopconfirmModal";
+import {SignupTableDefaultCssMap} from "./table/SignupTable";
 
 class ApplicationListPage extends BaseListPage {
   constructor(props) {
     super(props);
   }
 
-  componentDidMount() {
-    this.setState({
-      organizationName: this.props.account.owner,
-    });
-  }
-
   newApplication() {
     const randomName = Setting.getRandomName();
+    const organizationName = Setting.getRequestOrganization(this.props.account);
     return {
       owner: "admin", // this.props.account.applicationName,
       name: `application_${randomName}`,
-      organization: this.state.organizationName,
+      organization: organizationName,
       createdTime: moment().format(),
       displayName: `New Application - ${randomName}`,
       logo: `${Setting.StaticBaseUrl}/img/casdoor-logo_1185x256.png`,
@@ -49,7 +45,13 @@ class ApplicationListPage extends BaseListPage {
       enableCodeSignin: false,
       enableSamlCompress: false,
       providers: [
-        {name: "provider_captcha_default", canSignUp: false, canSignIn: false, canUnlink: false, prompted: false, alertType: "None"},
+        {name: "provider_captcha_default", canSignUp: false, canSignIn: false, canUnlink: false, prompted: false, signupGroup: "", rule: ""},
+      ],
+      SigninMethods: [
+        {name: "Password", displayName: "Password", rule: "All"},
+        {name: "Verification code", displayName: "Verification code", rule: "All"},
+        {name: "WebAuthn", displayName: "WebAuthn", rule: "None"},
+        {name: "Face ID", displayName: "Face ID", rule: "None"},
       ],
       signupItems: [
         {name: "ID", visible: false, required: true, rule: "Random"},
@@ -60,11 +62,16 @@ class ApplicationListPage extends BaseListPage {
         {name: "Email", visible: true, required: true, rule: "Normal"},
         {name: "Phone", visible: true, required: true, rule: "None"},
         {name: "Agreement", visible: true, required: true, rule: "None"},
+        {name: "Signup button", visible: true, required: true, rule: "None"},
+        {name: "Providers", visible: true, required: true, rule: "None", customCss: SignupTableDefaultCssMap["Providers"]},
       ],
+      grantTypes: ["authorization_code", "password", "client_credentials", "token", "id_token", "refresh_token"],
       cert: "cert-built-in",
       redirectUris: ["http://localhost:9000/callback"],
       tokenFormat: "JWT",
+      tokenFields: [],
       expireInHours: 24 * 7,
+      refreshExpireInHours: 24 * 7,
       formOffset: 2,
     };
   }
@@ -90,9 +97,11 @@ class ApplicationListPage extends BaseListPage {
       .then((res) => {
         if (res.status === "ok") {
           Setting.showMessage("success", i18next.t("general:Successfully deleted"));
-          this.setState({
-            data: Setting.deleteRow(this.state.data, i),
-            pagination: {total: this.state.pagination.total - 1},
+          this.fetch({
+            pagination: {
+              ...this.state.pagination,
+              current: this.state.pagination.current > 1 && this.state.data.length === 1 ? this.state.pagination.current - 1 : this.state.pagination.current,
+            },
           });
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to delete")}: ${res.msg}`);
@@ -116,7 +125,7 @@ class ApplicationListPage extends BaseListPage {
         render: (text, record, index) => {
           return (
             <Link to={`/applications/${record.organization}/${text}`}>
-              {text}
+              {Setting.getApplicationDisplayName(record)}
             </Link>
           );
         },
@@ -175,7 +184,7 @@ class ApplicationListPage extends BaseListPage {
         // width: '600px',
         render: (text, record, index) => {
           const providers = text;
-          if (providers.length === 0) {
+          if (providers === null || providers.length === 0) {
             return `(${i18next.t("general:empty")})`;
           }
 
@@ -272,12 +281,14 @@ class ApplicationListPage extends BaseListPage {
     const field = params.searchedColumn, value = params.searchText;
     const sortField = params.sortField, sortOrder = params.sortOrder;
     this.setState({loading: true});
-    (Setting.isAdminUser(this.props.account) ? ApplicationBackend.getApplications("admin", params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder) :
-      ApplicationBackend.getApplicationsByOrganization("admin", this.state.organizationName, params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder))
+    (Setting.isDefaultOrganizationSelected(this.props.account) ? ApplicationBackend.getApplications("admin", params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder) :
+      ApplicationBackend.getApplicationsByOrganization("admin", Setting.getRequestOrganization(this.props.account), params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder))
       .then((res) => {
+        this.setState({
+          loading: false,
+        });
         if (res.status === "ok") {
           this.setState({
-            loading: false,
             data: res.data,
             pagination: {
               ...params.pagination,
@@ -289,9 +300,10 @@ class ApplicationListPage extends BaseListPage {
         } else {
           if (Setting.isResponseDenied(res)) {
             this.setState({
-              loading: false,
               isAuthorized: false,
             });
+          } else {
+            Setting.showMessage("error", res.msg);
           }
         }
       });

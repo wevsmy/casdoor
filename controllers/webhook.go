@@ -26,9 +26,10 @@ import (
 // @Title GetWebhooks
 // @Tag Webhook API
 // @Description get webhooks
-// @Param   owner     query    string  true        "The owner of webhooks"
+// @Param   owner     query    string  built-in/admin	true        "The owner of webhooks"
 // @Success 200 {array} object.Webhook The Response object
 // @router /get-webhooks [get]
+// @Security test_apiKey
 func (c *ApiController) GetWebhooks() {
 	owner := c.Input().Get("owner")
 	limit := c.Input().Get("pageSize")
@@ -37,13 +38,32 @@ func (c *ApiController) GetWebhooks() {
 	value := c.Input().Get("value")
 	sortField := c.Input().Get("sortField")
 	sortOrder := c.Input().Get("sortOrder")
+	organization := c.Input().Get("organization")
+
 	if limit == "" || page == "" {
-		c.Data["json"] = object.GetWebhooks(owner)
-		c.ServeJSON()
+		webhooks, err := object.GetWebhooks(owner, organization)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
+		c.ResponseOk(webhooks)
 	} else {
 		limit := util.ParseInt(limit)
-		paginator := pagination.SetPaginator(c.Ctx, limit, int64(object.GetWebhookCount(owner, field, value)))
-		webhooks := object.GetPaginationWebhooks(owner, paginator.Offset(), limit, field, value, sortField, sortOrder)
+		count, err := object.GetWebhookCount(owner, organization, field, value)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
+		paginator := pagination.SetPaginator(c.Ctx, limit, count)
+
+		webhooks, err := object.GetPaginationWebhooks(owner, organization, paginator.Offset(), limit, field, value, sortField, sortOrder)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
 		c.ResponseOk(webhooks, paginator.Nums())
 	}
 }
@@ -52,21 +72,26 @@ func (c *ApiController) GetWebhooks() {
 // @Title GetWebhook
 // @Tag Webhook API
 // @Description get webhook
-// @Param   id     query    string  true        "The id ( owner/name ) of the webhook"
+// @Param   id     query    string  built-in/admin	true        "The id ( owner/name ) of the webhook"
 // @Success 200 {object} object.Webhook The Response object
 // @router /get-webhook [get]
 func (c *ApiController) GetWebhook() {
 	id := c.Input().Get("id")
 
-	c.Data["json"] = object.GetWebhook(id)
-	c.ServeJSON()
+	webhook, err := object.GetWebhook(id)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	c.ResponseOk(webhook)
 }
 
 // UpdateWebhook
 // @Title UpdateWebhook
 // @Tag Webhook API
 // @Description update webhook
-// @Param   id     query    string  true        "The id ( owner/name ) of the webhook"
+// @Param   id     query    string  built-in/admin true        "The id ( owner/name ) of the webhook"
 // @Param   body    body   object.Webhook  true        "The details of the webhook"
 // @Success 200 {object} controllers.Response The Response object
 // @router /update-webhook [post]

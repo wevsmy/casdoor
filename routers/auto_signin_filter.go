@@ -16,6 +16,7 @@ package routers
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/beego/beego/context"
 	"github.com/casdoor/casdoor/object"
@@ -23,35 +24,71 @@ import (
 )
 
 func AutoSigninFilter(ctx *context.Context) {
+	urlPath := ctx.Request.URL.Path
+	if strings.HasPrefix(urlPath, "/api/login/oauth/access_token") {
+		return
+	}
 	//if getSessionUser(ctx) != "" {
 	//	return
 	//}
 
 	// GET parameter like "/page?access_token=123" or
 	// HTTP Bearer token like "Authorization: Bearer 123"
-	accessToken := util.GetMaxLenStr(ctx.Input.Query("accessToken"), ctx.Input.Query("access_token"), parseBearerToken(ctx))
+	accessToken := ctx.Input.Query("accessToken")
+	if accessToken == "" {
+		accessToken = ctx.Input.Query("access_token")
+	}
+	if accessToken == "" {
+		accessToken = parseBearerToken(ctx)
+	}
 
 	if accessToken != "" {
-		token := object.GetTokenByAccessToken(accessToken)
+		token, err := object.GetTokenByAccessToken(accessToken)
+		if err != nil {
+			responseError(ctx, err.Error())
+			return
+		}
+
 		if token == nil {
-			responseError(ctx, "Access token doesn't exist")
+			responseError(ctx, "Access token doesn't exist in database")
 			return
 		}
 
-		if util.IsTokenExpired(token.CreatedTime, token.ExpiresIn) {
-			responseError(ctx, "Access token has expired")
+		isExpired, expireTime := util.IsTokenExpired(token.CreatedTime, token.ExpiresIn)
+		if isExpired {
+			responseError(ctx, fmt.Sprintf("Access token has expired, expireTime = %s", expireTime))
 			return
 		}
 
-		userId := fmt.Sprintf("%s/%s", token.Organization, token.User)
-		application, _ := object.GetApplicationByUserId(fmt.Sprintf("app/%s", token.Application))
+		userId := util.GetId(token.Organization, token.User)
+		application, err := object.GetApplicationByUserId(fmt.Sprintf("app/%s", token.Application))
+		if err != nil {
+			responseError(ctx, err.Error())
+			return
+		}
+
 		setSessionUser(ctx, userId)
 		setSessionOidc(ctx, token.Scope, application.ClientId)
 		return
 	}
 
+	accessKey := ctx.Input.Query("accessKey")
+	accessSecret := ctx.Input.Query("accessSecret")
+	if accessKey != "" && accessSecret != "" {
+		userId, err := getUsernameByKeys(ctx)
+		if err != nil {
+			responseError(ctx, err.Error())
+		}
+
+		setSessionUser(ctx, userId)
+	}
+
 	// "/page?clientId=123&clientSecret=456"
-	userId := getUsernameByClientIdSecret(ctx)
+	userId, err := getUsernameByClientIdSecret(ctx)
+	if err != nil {
+		responseError(ctx, err.Error())
+		return
+	}
 	if userId != "" {
 		setSessionUser(ctx, userId)
 		return
@@ -62,13 +99,12 @@ func AutoSigninFilter(ctx *context.Context) {
 	password := ctx.Input.Query("password")
 	if userId != "" && password != "" && ctx.Input.Query("grant_type") == "" {
 		owner, name := util.GetOwnerAndNameFromId(userId)
-		_, msg := object.CheckUserPassword(owner, name, password, "en")
-		if msg != "" {
-			responseError(ctx, msg)
+		_, err = object.CheckUserPassword(owner, name, password, "en")
+		if err != nil {
+			responseError(ctx, err.Error())
 			return
 		}
 
 		setSessionUser(ctx, userId)
-		return
 	}
 }

@@ -65,7 +65,7 @@ class RecordListPage extends BaseListPage {
         title: i18next.t("general:Client IP"),
         dataIndex: "clientIp",
         key: "clientIp",
-        width: "150px",
+        width: "100px",
         sorter: true,
         ...this.getColumnSearchProps("clientIp"),
         render: (text, record, index) => {
@@ -80,7 +80,7 @@ class RecordListPage extends BaseListPage {
         title: i18next.t("general:Timestamp"),
         dataIndex: "createdTime",
         key: "createdTime",
-        width: "180px",
+        width: "150px",
         sorter: true,
         render: (text, record, index) => {
           return Setting.getFormattedDate(text);
@@ -105,7 +105,7 @@ class RecordListPage extends BaseListPage {
         title: i18next.t("general:User"),
         dataIndex: "user",
         key: "user",
-        width: "120px",
+        width: "100px",
         sorter: true,
         ...this.getColumnSearchProps("user"),
         render: (text, record, index) => {
@@ -139,9 +139,41 @@ class RecordListPage extends BaseListPage {
         title: i18next.t("general:Request URI"),
         dataIndex: "requestUri",
         key: "requestUri",
-        // width: '300px',
+        // width: "300px",
         sorter: true,
         ...this.getColumnSearchProps("requestUri"),
+      },
+      {
+        title: i18next.t("user:Language"),
+        dataIndex: "language",
+        key: "language",
+        width: "90px",
+        sorter: true,
+        ...this.getColumnSearchProps("language"),
+      },
+      {
+        title: i18next.t("record:Status code"),
+        dataIndex: "statusCode",
+        key: "statusCode",
+        width: "90px",
+        sorter: true,
+        ...this.getColumnSearchProps("statusCode"),
+      },
+      {
+        title: i18next.t("record:Response"),
+        dataIndex: "response",
+        key: "response",
+        width: "90px",
+        sorter: true,
+        ...this.getColumnSearchProps("response"),
+      },
+      {
+        title: i18next.t("record:Object"),
+        dataIndex: "object",
+        key: "object",
+        width: "90px",
+        sorter: true,
+        ...this.getColumnSearchProps("object"),
       },
       {
         title: i18next.t("general:Action"),
@@ -163,7 +195,7 @@ class RecordListPage extends BaseListPage {
         sorter: true,
         fixed: (Setting.isMobile()) ? "false" : "right",
         render: (text, record, index) => {
-          if (!["signup", "login", "logout", "update-user"].includes(record.action)) {
+          if (!["signup", "login", "logout", "update-user", "new-user"].includes(record.action)) {
             return null;
           }
 
@@ -175,7 +207,7 @@ class RecordListPage extends BaseListPage {
     ];
 
     if (Setting.isLocalAdminUser(this.props.account)) {
-      columns = columns.filter(column => column.key !== "name" && column.key !== "organization");
+      columns = columns.filter(column => column.key !== "name");
     }
 
     const paginationProps = {
@@ -209,11 +241,13 @@ class RecordListPage extends BaseListPage {
       value = params.method;
     }
     this.setState({loading: true});
-    RecordBackend.getRecords(params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
+    RecordBackend.getRecords(Setting.isDefaultOrganizationSelected(this.props.account) ? "" : Setting.getRequestOrganization(this.props.account), params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
       .then((res) => {
+        this.setState({
+          loading: false,
+        });
         if (res.status === "ok") {
           this.setState({
-            loading: false,
             data: res.data,
             pagination: {
               ...params.pagination,

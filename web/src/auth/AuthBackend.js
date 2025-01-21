@@ -15,7 +15,7 @@
 import {authConfig} from "./Auth";
 import * as Setting from "../Setting";
 
-export function getAccount(query) {
+export function getAccount(query = "") {
   return fetch(`${authConfig.serverUrl}/api/get-account${query}`, {
     method: "GET",
     credentials: "include",
@@ -46,18 +46,23 @@ export function getEmailAndPhone(organization, username) {
   }).then((res) => res.json());
 }
 
+export function casLoginParamsToQuery(casParams) {
+  return `?type=${casParams?.type}&id=${casParams?.id}&redirectUri=${casParams?.service}`;
+}
+
 export function oAuthParamsToQuery(oAuthParams) {
   // login
-  if (oAuthParams === null) {
+  if (oAuthParams === null || oAuthParams === undefined) {
     return "";
   }
 
   // code
-  return `?clientId=${oAuthParams.clientId}&responseType=${oAuthParams.responseType}&redirectUri=${encodeURIComponent(oAuthParams.redirectUri)}&scope=${oAuthParams.scope}&state=${oAuthParams.state}&nonce=${oAuthParams.nonce}&code_challenge_method=${oAuthParams.challengeMethod}&code_challenge=${oAuthParams.codeChallenge}`;
+  return `?clientId=${oAuthParams.clientId}&responseType=${oAuthParams.responseType}&redirectUri=${encodeURIComponent(oAuthParams.redirectUri)}&type=${oAuthParams.type}&scope=${oAuthParams.scope}&state=${oAuthParams.state}&nonce=${oAuthParams.nonce}&code_challenge_method=${oAuthParams.challengeMethod}&code_challenge=${oAuthParams.codeChallenge}`;
 }
 
-export function getApplicationLogin(oAuthParams) {
-  return fetch(`${authConfig.serverUrl}/api/get-app-login${oAuthParamsToQuery(oAuthParams)}`, {
+export function getApplicationLogin(params) {
+  const queryParams = (params?.type === "cas") ? casLoginParamsToQuery(params) : oAuthParamsToQuery(params);
+  return fetch(`${authConfig.serverUrl}/api/get-app-login${queryParams}`, {
     method: "GET",
     credentials: "include",
     headers: {
@@ -130,8 +135,18 @@ export function loginWithSaml(values, param) {
   }).then(res => res.json());
 }
 
-export function getWechatMessageEvent() {
-  return fetch(`${Setting.ServerUrl}/api/get-webhook-event`, {
+export function getWechatMessageEvent(ticket) {
+  return fetch(`${Setting.ServerUrl}/api/get-webhook-event?ticket=${ticket}`, {
+    method: "GET",
+    credentials: "include",
+    headers: {
+      "Accept-Language": Setting.getAcceptLanguage(),
+    },
+  }).then(res => res.json());
+}
+
+export function getWechatQRCode(providerId) {
+  return fetch(`${Setting.ServerUrl}/api/get-qrcode?id=${providerId}`, {
     method: "GET",
     credentials: "include",
     headers: {
@@ -141,7 +156,7 @@ export function getWechatMessageEvent() {
 }
 
 export function getCaptchaStatus(values) {
-  return fetch(`${Setting.ServerUrl}/api/get-captcha-status?organization=${values["organization"]}&user_id=${values["username"]}`, {
+  return fetch(`${Setting.ServerUrl}/api/get-captcha-status?organization=${values["organization"]}&userId=${values["username"]}`, {
     method: "GET",
     credentials: "include",
     headers: {

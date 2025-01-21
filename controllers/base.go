@@ -41,18 +41,65 @@ type SessionData struct {
 }
 
 func (c *ApiController) IsGlobalAdmin() bool {
-	username := c.GetSessionUsername()
-	if strings.HasPrefix(username, "app/") {
-		// e.g., "app/app-casnode"
-		return true
-	}
+	isGlobalAdmin, _ := c.isGlobalAdmin()
 
-	user := object.GetUser(username)
-	if user == nil {
+	return isGlobalAdmin
+}
+
+func (c *ApiController) IsAdmin() bool {
+	isGlobalAdmin, user := c.isGlobalAdmin()
+	if !isGlobalAdmin && user == nil {
 		return false
 	}
 
-	return user.Owner == "built-in" || user.IsGlobalAdmin
+	return isGlobalAdmin || user.IsAdmin
+}
+
+func (c *ApiController) IsAdminOrSelf(user2 *object.User) bool {
+	isGlobalAdmin, user := c.isGlobalAdmin()
+	if isGlobalAdmin || (user != nil && user.IsAdmin) {
+		return true
+	}
+
+	if user == nil || user2 == nil {
+		return false
+	}
+
+	if user.Owner == user2.Owner && user.Name == user2.Name {
+		return true
+	}
+	return false
+}
+
+func (c *ApiController) isGlobalAdmin() (bool, *object.User) {
+	username := c.GetSessionUsername()
+	if object.IsAppUser(username) {
+		// e.g., "app/app-casnode"
+		return true, nil
+	}
+
+	user := c.getCurrentUser()
+	if user == nil {
+		return false, nil
+	}
+
+	return user.IsGlobalAdmin(), user
+}
+
+func (c *ApiController) getCurrentUser() *object.User {
+	var user *object.User
+	var err error
+	userId := c.GetSessionUsername()
+	if userId == "" {
+		user = nil
+	} else {
+		user, err = object.GetUser(userId)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return nil
+		}
+	}
+	return user
 }
 
 // GetSessionUsername ...
@@ -75,18 +122,36 @@ func (c *ApiController) GetSessionUsername() string {
 	return user.(string)
 }
 
+func (c *ApiController) GetSessionToken() string {
+	accessToken := c.GetSession("accessToken")
+	if accessToken == nil {
+		return ""
+	}
+
+	return accessToken.(string)
+}
+
 func (c *ApiController) GetSessionApplication() *object.Application {
 	clientId := c.GetSession("aud")
 	if clientId == nil {
 		return nil
 	}
-	application := object.GetApplicationByClientId(clientId.(string))
+	application, err := object.GetApplicationByClientId(clientId.(string))
+	if err != nil {
+		c.ResponseError(err.Error())
+		return nil
+	}
+
 	return application
 }
 
 func (c *ApiController) ClearUserSession() {
 	c.SetSessionUsername("")
 	c.SetSessionData(nil)
+}
+
+func (c *ApiController) ClearTokenSession() {
+	c.SetSessionToken("")
 }
 
 func (c *ApiController) GetSessionOidc() (string, string) {
@@ -113,6 +178,10 @@ func (c *ApiController) GetSessionOidc() (string, string) {
 // SetSessionUsername ...
 func (c *ApiController) SetSessionUsername(user string) {
 	c.SetSession("username", user)
+}
+
+func (c *ApiController) SetSessionToken(accessToken string) {
+	c.SetSession("accessToken", accessToken)
 }
 
 // GetSessionData ...
@@ -142,8 +211,30 @@ func (c *ApiController) SetSessionData(s *SessionData) {
 	c.SetSession("SessionData", util.StructToJson(s))
 }
 
-func wrapActionResponse(affected bool) *Response {
-	if affected {
+func (c *ApiController) setMfaUserSession(userId string) {
+	c.SetSession(object.MfaSessionUserId, userId)
+}
+
+func (c *ApiController) getMfaUserSession() string {
+	userId := c.Ctx.Input.CruSession.Get(object.MfaSessionUserId)
+	if userId == nil {
+		return ""
+	}
+	return userId.(string)
+}
+
+func (c *ApiController) setExpireForSession() {
+	timestamp := time.Now().Unix()
+	timestamp += 3600 * 24
+	c.SetSessionData(&SessionData{
+		ExpireTime: timestamp,
+	})
+}
+
+func wrapActionResponse(affected bool, e ...error) *Response {
+	if len(e) != 0 && e[0] != nil {
+		return &Response{Status: "error", Msg: e[0].Error()}
+	} else if affected {
 		return &Response{Status: "ok", Msg: "", Data: "Affected"}
 	} else {
 		return &Response{Status: "ok", Msg: "", Data: "Unaffected"}
@@ -156,4 +247,15 @@ func wrapErrorResponse(err error) *Response {
 	} else {
 		return &Response{Status: "error", Msg: err.Error()}
 	}
+}
+
+func (c *ApiController) Finish() {
+	if strings.HasPrefix(c.Ctx.Input.URL(), "/api") {
+		startTime := c.Ctx.Input.GetData("startTime")
+		if startTime != nil {
+			latency := time.Since(startTime.(time.Time)).Milliseconds()
+			object.ApiLatency.WithLabelValues(c.Ctx.Input.URL(), c.Ctx.Input.Method()).Observe(float64(latency))
+		}
+	}
+	c.Controller.Finish()
 }

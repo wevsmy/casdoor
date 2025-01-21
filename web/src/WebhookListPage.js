@@ -20,16 +20,17 @@ import * as Setting from "./Setting";
 import * as WebhookBackend from "./backend/WebhookBackend";
 import i18next from "i18next";
 import BaseListPage from "./BaseListPage";
-import PopconfirmModal from "./PopconfirmModal";
+import PopconfirmModal from "./common/modal/PopconfirmModal";
 
 class WebhookListPage extends BaseListPage {
   newWebhook() {
     const randomName = Setting.getRandomName();
+    const organizationName = Setting.getRequestOrganization(this.props.account);
     return {
       owner: "admin", // this.props.account.webhookname,
       name: `webhook_${randomName}`,
       createdTime: moment().format(),
-      organization: "built-in",
+      organization: organizationName,
       url: "https://example.com/callback",
       method: "POST",
       contentType: "application/json",
@@ -60,9 +61,11 @@ class WebhookListPage extends BaseListPage {
       .then((res) => {
         if (res.status === "ok") {
           Setting.showMessage("success", i18next.t("general:Successfully deleted"));
-          this.setState({
-            data: Setting.deleteRow(this.state.data, i),
-            pagination: {total: this.state.pagination.total - 1},
+          this.fetch({
+            pagination: {
+              ...this.state.pagination,
+              current: this.state.pagination.current > 1 && this.state.data.length === 1 ? this.state.pagination.current - 1 : this.state.pagination.current,
+            },
           });
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to delete")}: ${res.msg}`);
@@ -110,7 +113,7 @@ class WebhookListPage extends BaseListPage {
         title: i18next.t("general:Created time"),
         dataIndex: "createdTime",
         key: "createdTime",
-        width: "180px",
+        width: "150px",
         sorter: true,
         render: (text, record, index) => {
           return Setting.getFormattedDate(text);
@@ -120,7 +123,7 @@ class WebhookListPage extends BaseListPage {
         title: i18next.t("general:URL"),
         dataIndex: "url",
         key: "url",
-        width: "300px",
+        width: "200px",
         sorter: true,
         ...this.getColumnSearchProps("url"),
         render: (text, record, index) => {
@@ -137,7 +140,7 @@ class WebhookListPage extends BaseListPage {
         title: i18next.t("general:Method"),
         dataIndex: "method",
         key: "method",
-        width: "120px",
+        width: "100px",
         sorter: true,
         ...this.getColumnSearchProps("method"),
       },
@@ -145,7 +148,7 @@ class WebhookListPage extends BaseListPage {
         title: i18next.t("webhook:Content type"),
         dataIndex: "contentType",
         key: "contentType",
-        width: "200px",
+        width: "140px",
         sorter: true,
         filterMultiple: false,
         filters: [
@@ -168,7 +171,19 @@ class WebhookListPage extends BaseListPage {
         title: i18next.t("webhook:Is user extended"),
         dataIndex: "isUserExtended",
         key: "isUserExtended",
-        width: "160px",
+        width: "140px",
+        sorter: true,
+        render: (text, record, index) => {
+          return (
+            <Switch disabled checkedChildren="ON" unCheckedChildren="OFF" checked={text} />
+          );
+        },
+      },
+      {
+        title: i18next.t("webhook:Single org only"),
+        dataIndex: "singleOrgOnly",
+        key: "singleOrgOnly",
+        width: "140px",
         sorter: true,
         render: (text, record, index) => {
           return (
@@ -182,6 +197,7 @@ class WebhookListPage extends BaseListPage {
         key: "isEnabled",
         width: "120px",
         sorter: true,
+        fixed: (Setting.isMobile()) ? "false" : "right",
         render: (text, record, index) => {
           return (
             <Switch disabled checkedChildren="ON" unCheckedChildren="OFF" checked={text} />
@@ -240,11 +256,13 @@ class WebhookListPage extends BaseListPage {
       value = params.contentType;
     }
     this.setState({loading: true});
-    WebhookBackend.getWebhooks("admin", params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
+    WebhookBackend.getWebhooks("admin", Setting.isDefaultOrganizationSelected(this.props.account) ? "" : Setting.getRequestOrganization(this.props.account), params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
       .then((res) => {
+        this.setState({
+          loading: false,
+        });
         if (res.status === "ok") {
           this.setState({
-            loading: false,
             data: res.data,
             pagination: {
               ...params.pagination,
@@ -256,9 +274,10 @@ class WebhookListPage extends BaseListPage {
         } else {
           if (Setting.isResponseDenied(res)) {
             this.setState({
-              loading: false,
               isAuthorized: false,
             });
+          } else {
+            Setting.showMessage("error", res.msg);
           }
         }
       });

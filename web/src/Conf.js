@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+export const DefaultApplication = "app-built-in";
+
+export const CasvisorUrl = "";
+
 export const ShowGithubCorner = false;
-export const GithubRepo = "https://github.com/casdoor/casdoor";
 export const IsDemoMode = false;
 
 export const ForceLanguage = "";
 export const DefaultLanguage = "en";
-
-export const EnableExtraPages = true;
 
 export const InitThemeAlgorithm = true;
 export const ThemeDefault = {
@@ -28,3 +29,8 @@ export const ThemeDefault = {
   borderRadius: 6,
   isCompact: false,
 };
+
+export const CustomFooter = null;
+
+// Blank or null to hide Ai Assistant button
+export const AiAssistantUrl = "https://ai.casbin.com";

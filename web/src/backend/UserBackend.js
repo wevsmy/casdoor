@@ -25,8 +25,8 @@ export function getGlobalUsers(page, pageSize, field = "", value = "", sortField
   }).then(res => res.json());
 }
 
-export function getUsers(owner, page = "", pageSize = "", field = "", value = "", sortField = "", sortOrder = "") {
-  return fetch(`${Setting.ServerUrl}/api/get-users?owner=${owner}&p=${page}&pageSize=${pageSize}&field=${field}&value=${value}&sortField=${sortField}&sortOrder=${sortOrder}`, {
+export function getUsers(owner, page = "", pageSize = "", field = "", value = "", sortField = "", sortOrder = "", groupName = "") {
+  return fetch(`${Setting.ServerUrl}/api/get-users?owner=${owner}&p=${page}&pageSize=${pageSize}&field=${field}&value=${value}&sortField=${sortField}&sortOrder=${sortOrder}&groupName=${groupName}`, {
     method: "GET",
     credentials: "include",
     headers: {
@@ -39,6 +39,17 @@ export function getUser(owner, name) {
   return fetch(`${Setting.ServerUrl}/api/get-user?id=${owner}/${encodeURIComponent(name)}`, {
     method: "GET",
     credentials: "include",
+    headers: {
+      "Accept-Language": Setting.getAcceptLanguage(),
+    },
+  }).then(res => res.json());
+}
+
+export function addUserKeys(user) {
+  return fetch(`${Setting.ServerUrl}/api/add-user-keys`, {
+    method: "POST",
+    credentials: "include",
+    body: JSON.stringify(user),
     headers: {
       "Accept-Language": Setting.getAcceptLanguage(),
     },
@@ -113,9 +124,9 @@ export function setPassword(userOwner, userName, oldPassword, newPassword, code 
   }).then(res => res.json());
 }
 
-export function sendCode(checkType, captchaToken, clientSecret, method, countryCode = "", dest, type, applicationId, checkUser = "") {
+export function sendCode(captchaType, captchaToken, clientSecret, method, countryCode = "", dest, type, applicationId, checkUser = "") {
   const formData = new FormData();
-  formData.append("checkType", checkType);
+  formData.append("captchaType", captchaType);
   formData.append("captchaToken", captchaToken);
   formData.append("clientSecret", clientSecret);
   formData.append("method", method);
@@ -136,17 +147,18 @@ export function sendCode(checkType, captchaToken, clientSecret, method, countryC
       Setting.showMessage("success", i18next.t("user:Verification code sent"));
       return true;
     } else {
-      Setting.showMessage("error", i18next.t("user:" + res.msg));
+      Setting.showMessage("error", res.msg);
       return false;
     }
   });
 }
 
-export function verifyCaptcha(captchaType, captchaToken, clientSecret) {
+export function verifyCaptcha(owner, name, captchaType, captchaToken, clientSecret) {
   const formData = new FormData();
   formData.append("captchaType", captchaType);
   formData.append("captchaToken", captchaToken);
   formData.append("clientSecret", clientSecret);
+  formData.append("applicationId", `${owner}/${name}`);
   return fetch(`${Setting.ServerUrl}/api/verify-captcha`, {
     method: "POST",
     credentials: "include",
@@ -198,6 +210,29 @@ export function verifyCode(values) {
     method: "POST",
     credentials: "include",
     body: JSON.stringify(values),
+    headers: {
+      "Accept-Language": Setting.getAcceptLanguage(),
+    },
+  }).then(res => res.json());
+}
+
+export function checkUserPassword(values) {
+  return fetch(`${Setting.ServerUrl}/api/check-user-password`, {
+    method: "POST",
+    credentials: "include",
+    body: JSON.stringify(values),
+  }).then(res => res.json());
+}
+
+export function removeUserFromGroup({owner, name, groupName}) {
+  const formData = new FormData();
+  formData.append("owner", owner);
+  formData.append("name", name);
+  formData.append("groupName", groupName);
+  return fetch(`${Setting.ServerUrl}/api/remove-user-from-group`, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
     headers: {
       "Accept-Language": Setting.getAcceptLanguage(),
     },

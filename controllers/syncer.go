@@ -37,13 +37,31 @@ func (c *ApiController) GetSyncers() {
 	value := c.Input().Get("value")
 	sortField := c.Input().Get("sortField")
 	sortOrder := c.Input().Get("sortOrder")
+	organization := c.Input().Get("organization")
+
 	if limit == "" || page == "" {
-		c.Data["json"] = object.GetSyncers(owner)
-		c.ServeJSON()
+		syncers, err := object.GetMaskedSyncers(object.GetOrganizationSyncers(owner, organization))
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
+		c.ResponseOk(syncers)
 	} else {
 		limit := util.ParseInt(limit)
-		paginator := pagination.SetPaginator(c.Ctx, limit, int64(object.GetSyncerCount(owner, field, value)))
-		syncers := object.GetPaginationSyncers(owner, paginator.Offset(), limit, field, value, sortField, sortOrder)
+		count, err := object.GetSyncerCount(owner, organization, field, value)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
+		paginator := pagination.SetPaginator(c.Ctx, limit, count)
+		syncers, err := object.GetMaskedSyncers(object.GetPaginationSyncers(owner, organization, paginator.Offset(), limit, field, value, sortField, sortOrder))
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
 		c.ResponseOk(syncers, paginator.Nums())
 	}
 }
@@ -58,8 +76,13 @@ func (c *ApiController) GetSyncers() {
 func (c *ApiController) GetSyncer() {
 	id := c.Input().Get("id")
 
-	c.Data["json"] = object.GetSyncer(id)
-	c.ServeJSON()
+	syncer, err := object.GetMaskedSyncer(object.GetSyncer(id))
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	c.ResponseOk(syncer)
 }
 
 // UpdateSyncer
@@ -131,9 +154,34 @@ func (c *ApiController) DeleteSyncer() {
 // @router /run-syncer [get]
 func (c *ApiController) RunSyncer() {
 	id := c.Input().Get("id")
-	syncer := object.GetSyncer(id)
+	syncer, err := object.GetSyncer(id)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
 
-	object.RunSyncer(syncer)
+	err = object.RunSyncer(syncer)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	c.ResponseOk()
+}
+
+func (c *ApiController) TestSyncerDb() {
+	var syncer object.Syncer
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &syncer)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	err = object.TestSyncerDb(syncer)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
 
 	c.ResponseOk()
 }

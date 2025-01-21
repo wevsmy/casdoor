@@ -16,7 +16,7 @@ package controllers
 
 import (
 	"fmt"
-	"strconv"
+	"strings"
 
 	"github.com/casdoor/casdoor/conf"
 	"github.com/casdoor/casdoor/i18n"
@@ -45,6 +45,22 @@ func (c *ApiController) ResponseOk(data ...interface{}) {
 
 // ResponseError ...
 func (c *ApiController) ResponseError(error string, data ...interface{}) {
+	enableErrorMask2 := conf.GetConfigBool("enableErrorMask2")
+	if enableErrorMask2 {
+		error = c.T("subscription:Error")
+
+		resp := &Response{Status: "error", Msg: error}
+		c.ResponseJsonData(resp, data...)
+		return
+	}
+
+	enableErrorMask := conf.GetConfigBool("enableErrorMask")
+	if enableErrorMask {
+		if strings.HasPrefix(error, "The user: ") && strings.HasSuffix(error, " doesn't exist") || strings.HasPrefix(error, "用户: ") && strings.HasSuffix(error, "不存在") {
+			error = c.T("check:password or code is incorrect")
+		}
+	}
+
 	resp := &Response{Status: "error", Msg: error}
 	c.ResponseJsonData(resp, data...)
 }
@@ -56,6 +72,9 @@ func (c *ApiController) T(error string) string {
 // GetAcceptLanguage ...
 func (c *ApiController) GetAcceptLanguage() string {
 	language := c.Ctx.Request.Header.Get("Accept-Language")
+	if len(language) > 2 {
+		language = language[0:2]
+	}
 	return conf.GetLanguage(language)
 }
 
@@ -93,12 +112,24 @@ func (c *ApiController) RequireSignedInUser() (*object.User, bool) {
 		return nil, false
 	}
 
-	user := object.GetUser(userId)
+	if object.IsAppUser(userId) {
+		tmpUserId := c.Input().Get("userId")
+		if tmpUserId != "" {
+			userId = tmpUserId
+		}
+	}
+
+	user, err := object.GetUser(userId)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return nil, false
+	}
 	if user == nil {
 		c.ClearUserSession()
 		c.ResponseError(fmt.Sprintf(c.T("general:The user: %s doesn't exist"), userId))
 		return nil, false
 	}
+
 	return user, true
 }
 
@@ -112,46 +143,122 @@ func (c *ApiController) RequireAdmin() (string, bool) {
 	if user.Owner == "built-in" {
 		return "", true
 	}
+
+	if !user.IsAdmin {
+		c.ResponseError(c.T("general:this operation requires administrator to perform"))
+		return "", false
+	}
+
 	return user.Owner, true
 }
 
-func getInitScore(organization *object.Organization) (int, error) {
-	if organization != nil {
-		return organization.InitScore, nil
+func (c *ApiController) IsOrgAdmin() (bool, bool) {
+	userId, ok := c.RequireSignedIn()
+	if !ok {
+		return false, true
+	}
+
+	if object.IsAppUser(userId) {
+		return true, true
+	}
+
+	user, err := object.GetUser(userId)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return false, false
+	}
+	if user == nil {
+		c.ClearUserSession()
+		c.ResponseError(fmt.Sprintf(c.T("general:The user: %s doesn't exist"), userId))
+		return false, false
+	}
+
+	return user.IsAdmin, true
+}
+
+// IsMaskedEnabled ...
+func (c *ApiController) IsMaskedEnabled() (bool, bool) {
+	isMaskEnabled := true
+	withSecret := c.Input().Get("withSecret")
+	if withSecret == "1" {
+		isMaskEnabled = false
+
+		if conf.IsDemoMode() {
+			c.ResponseError(c.T("general:this operation is not allowed in demo mode"))
+			return false, isMaskEnabled
+		}
+
+		_, ok := c.RequireAdmin()
+		if !ok {
+			return false, isMaskEnabled
+		}
+	}
+
+	return true, isMaskEnabled
+}
+
+func refineFullFilePath(fullFilePath string) (string, string) {
+	tokens := strings.Split(fullFilePath, "/")
+	if len(tokens) >= 2 && tokens[0] == "Direct" && tokens[1] != "" {
+		providerName := tokens[1]
+		res := strings.Join(tokens[2:], "/")
+		return providerName, "/" + res
 	} else {
-		return strconv.Atoi(conf.GetConfigString("initScore"))
+		return "", fullFilePath
 	}
 }
 
-func (c *ApiController) GetProviderFromContext(category string) (*object.Provider, *object.User, bool) {
+func (c *ApiController) GetProviderFromContext(category string) (*object.Provider, error) {
 	providerName := c.Input().Get("provider")
-	if providerName != "" {
-		provider := object.GetProvider(util.GetId("admin", providerName))
-		if provider == nil {
-			c.ResponseError(c.T("util:The provider: %s is not found"), providerName)
-			return nil, nil, false
+	if providerName == "" {
+		field := c.Input().Get("field")
+		value := c.Input().Get("value")
+		if field == "provider" && value != "" {
+			providerName = value
+		} else {
+			fullFilePath := c.Input().Get("fullFilePath")
+			providerName, _ = refineFullFilePath(fullFilePath)
 		}
-		return provider, nil, true
+	}
+
+	if providerName != "" {
+		provider, err := object.GetProvider(util.GetId("admin", providerName))
+		if err != nil {
+			return nil, err
+		}
+
+		if provider == nil {
+			err = fmt.Errorf(c.T("util:The provider: %s is not found"), providerName)
+			return nil, err
+		}
+
+		return provider, nil
 	}
 
 	userId, ok := c.RequireSignedIn()
 	if !ok {
-		return nil, nil, false
+		return nil, fmt.Errorf(c.T("general:Please login first"))
 	}
 
-	application, user := object.GetApplicationByUserId(userId)
+	application, err := object.GetApplicationByUserId(userId)
+	if err != nil {
+		return nil, err
+	}
+
 	if application == nil {
-		c.ResponseError(fmt.Sprintf(c.T("util:No application is found for userId: %s"), userId))
-		return nil, nil, false
+		return nil, fmt.Errorf(c.T("util:No application is found for userId: %s"), userId)
 	}
 
-	provider := application.GetProviderByCategory(category)
+	provider, err := application.GetProviderByCategory(category)
+	if err != nil {
+		return nil, err
+	}
+
 	if provider == nil {
-		c.ResponseError(fmt.Sprintf(c.T("util:No provider for category: %s is found for application: %s"), category, application.Name))
-		return nil, nil, false
+		return nil, fmt.Errorf(c.T("util:No provider for category: %s is found for application: %s"), category, application.Name)
 	}
 
-	return provider, user, true
+	return provider, nil
 }
 
 func checkQuotaForApplication(count int) error {
@@ -187,12 +294,18 @@ func checkQuotaForProvider(count int) error {
 	return nil
 }
 
-func checkQuotaForUser(count int) error {
+func checkQuotaForUser() error {
 	quota := conf.GetConfigQuota().User
 	if quota == -1 {
 		return nil
 	}
-	if count >= quota {
+
+	count, err := object.GetUserCount("", "", "", "")
+	if err != nil {
+		return err
+	}
+
+	if int(count) >= quota {
 		return fmt.Errorf("user quota is exceeded")
 	}
 	return nil

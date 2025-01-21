@@ -19,13 +19,14 @@ import (
 	"io"
 	"mime/multipart"
 	"os"
+	"path/filepath"
 
 	"github.com/casdoor/casdoor/object"
 	"github.com/casdoor/casdoor/util"
 )
 
 func saveFile(path string, file *multipart.File) (err error) {
-	f, err := os.Create(path)
+	f, err := os.Create(filepath.Clean(path))
 	if err != nil {
 		return err
 	}
@@ -47,17 +48,22 @@ func (c *ApiController) UploadUsers() {
 		c.ResponseError(err.Error())
 		return
 	}
-	fileId := fmt.Sprintf("%s_%s_%s", owner, user, util.RemoveExt(header.Filename))
 
+	fileId := fmt.Sprintf("%s_%s_%s", owner, user, util.RemoveExt(header.Filename))
 	path := util.GetUploadXlsxPath(fileId)
-	util.EnsureFileFolderExists(path)
+	defer os.Remove(path)
 	err = saveFile(path, &file)
 	if err != nil {
 		c.ResponseError(err.Error())
 		return
 	}
 
-	affected := object.UploadUsers(owner, fileId)
+	affected, err := object.UploadUsers(owner, path)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
 	if affected {
 		c.ResponseOk()
 	} else {
