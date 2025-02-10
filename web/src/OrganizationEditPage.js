@@ -19,11 +19,14 @@ import * as ApplicationBackend from "./backend/ApplicationBackend";
 import * as LdapBackend from "./backend/LdapBackend";
 import * as Setting from "./Setting";
 import * as Conf from "./Conf";
+import * as Obfuscator from "./auth/Obfuscator";
 import i18next from "i18next";
 import {LinkOutlined} from "@ant-design/icons";
 import LdapTable from "./table/LdapTable";
 import AccountTable from "./table/AccountTable";
 import ThemeEditor from "./common/theme/ThemeEditor";
+import MfaTable from "./table/MfaTable";
+import {NavItemTree} from "./common/NavItemTree";
 
 const {Option} = Select;
 
@@ -48,18 +51,34 @@ class OrganizationEditPage extends React.Component {
 
   getOrganization() {
     OrganizationBackend.getOrganization("admin", this.state.organizationName)
-      .then((organization) => {
-        this.setState({
-          organization: organization,
-        });
+      .then((res) => {
+        if (res.status === "ok") {
+          const organization = res.data;
+          if (organization === null) {
+            this.props.history.push("/404");
+            return;
+          }
+          organization["enableDarkLogo"] = !!organization["logoDark"];
+
+          this.setState({
+            organization: organization,
+          });
+        } else {
+          Setting.showMessage("error", res.msg);
+        }
       });
   }
 
   getApplications() {
     ApplicationBackend.getApplicationsByOrganization("admin", this.state.organizationName)
-      .then((applications) => {
+      .then((res) => {
+        if (res.status === "error") {
+          Setting.showMessage("error", res.msg);
+          return;
+        }
+
         this.setState({
-          applications: applications,
+          applications: res.data || [],
         });
       });
   }
@@ -95,6 +114,22 @@ class OrganizationEditPage extends React.Component {
     });
   }
 
+  updatePasswordObfuscator(key, value) {
+    const organization = this.state.organization;
+    if (organization.passwordObfuscatorType === "") {
+      organization.passwordObfuscatorType = "Plain";
+    }
+    if (key === "type") {
+      organization.passwordObfuscatorType = value;
+      organization.passwordObfuscatorKey = Obfuscator.getRandomKeyForObfuscator(value);
+    } else if (key === "key") {
+      organization.passwordObfuscatorKey = value;
+    }
+    this.setState({
+      organization: organization,
+    });
+  }
+
   renderOrganization() {
     return (
       <Card size="small" title={
@@ -125,6 +160,78 @@ class OrganizationEditPage extends React.Component {
             }} />
           </Col>
         </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("general:Enable dark logo"), i18next.t("general:Enable dark logo - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <Switch checked={this.state.organization.enableDarkLogo} onChange={e => {
+              this.updateOrganizationField("enableDarkLogo", e);
+              if (!e) {
+                this.updateOrganizationField("logoDark", "");
+              }
+            }} />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("general:Logo"), i18next.t("general:Logo - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <Row style={{marginTop: "20px"}} >
+              <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 1}>
+                {Setting.getLabel(i18next.t("general:URL"), i18next.t("general:URL - Tooltip"))} :
+              </Col>
+              <Col span={23} >
+                <Input prefix={<LinkOutlined />} value={this.state.organization.logo} onChange={e => {
+                  this.updateOrganizationField("logo", e.target.value);
+                }} />
+              </Col>
+            </Row>
+            <Row style={{marginTop: "20px"}} >
+              <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 1}>
+                {i18next.t("general:Preview")}:
+              </Col>
+              <Col span={23}>
+                <a target="_blank" rel="noreferrer" href={this.state.organization.logo}>
+                  <img src={this.state.organization.logo ? this.state.organization.logo : Setting.getLogo([""])} alt={this.state.organization.logo} height={90} style={{background: "white", marginBottom: "20px"}} />
+                </a>
+              </Col>
+            </Row>
+          </Col>
+        </Row>
+        {
+          !this.state.organization.enableDarkLogo ? null : (<Row style={{marginTop: "20px"}}>
+            <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+              {Setting.getLabel(i18next.t("general:Logo dark"), i18next.t("general:Logo dark - Tooltip"))} :
+            </Col>
+            <Col span={22}>
+              <Row style={{marginTop: "20px"}}>
+                <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 1}>
+                  {Setting.getLabel(i18next.t("general:URL"), i18next.t("general:URL - Tooltip"))} :
+                </Col>
+                <Col span={23}>
+                  <Input prefix={<LinkOutlined />} value={this.state.organization.logoDark} onChange={e => {
+                    this.updateOrganizationField("logoDark", e.target.value);
+                  }} />
+                </Col>
+              </Row>
+              <Row style={{marginTop: "20px"}}>
+                <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 1}>
+                  {i18next.t("general:Preview")}:
+                </Col>
+                <Col span={23}>
+                  <a target="_blank" rel="noreferrer" href={this.state.organization.logoDark}>
+                    <img
+                      src={this.state.organization.logoDark ? this.state.organization.logoDark : Setting.getLogo(["dark"])}
+                      alt={this.state.organization.logoDark} height={90}
+                      style={{background: "#141414", marginBottom: "20px"}} />
+                  </a>
+                </Col>
+              </Row>
+            </Col>
+          </Row>)
+        }
         <Row style={{marginTop: "20px"}} >
           <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
             {Setting.getLabel(i18next.t("general:Favicon"), i18next.t("general:Favicon - Tooltip"))} :
@@ -168,7 +275,7 @@ class OrganizationEditPage extends React.Component {
           </Col>
           <Col span={22} >
             <Select virtual={false} style={{width: "100%"}} value={this.state.organization.passwordType} onChange={(value => {this.updateOrganizationField("passwordType", value);})}
-              options={["plain", "salt", "md5-salt", "bcrypt", "pbkdf2-salt", "argon2id"].map(item => Setting.getOption(item, item))}
+              options={["plain", "salt", "sha512-salt", "md5-salt", "bcrypt", "pbkdf2-salt", "argon2id"].map(item => Setting.getOption(item, item))}
             />
           </Col>
         </Row>
@@ -179,6 +286,67 @@ class OrganizationEditPage extends React.Component {
           <Col span={22} >
             <Input value={this.state.organization.passwordSalt} onChange={e => {
               this.updateOrganizationField("passwordSalt", e.target.value);
+            }} />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("general:Password complexity options"), i18next.t("general:Password complexity options - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <Select
+              virtual={false}
+              style={{width: "100%"}}
+              mode="multiple"
+              value={this.state.organization.passwordOptions}
+              onChange={(value => {
+                this.updateOrganizationField("passwordOptions", value);
+              })}
+              options={[
+                {value: "AtLeast6", name: i18next.t("user:The password must have at least 6 characters")},
+                {value: "AtLeast8", name: i18next.t("user:The password must have at least 8 characters")},
+                {value: "Aa123", name: i18next.t("user:The password must contain at least one uppercase letter, one lowercase letter and one digit")},
+                {value: "SpecialChar", name: i18next.t("user:The password must contain at least one special character")},
+                {value: "NoRepeat", name: i18next.t("user:The password must not contain any repeated characters")},
+              ].map((item) => Setting.getOption(item.name, item.value))}
+            />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("general:Password obfuscator"), i18next.t("general:Password obfuscator - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <Select virtual={false} style={{width: "100%"}}
+              value={this.state.organization.passwordObfuscatorType}
+              onChange={(value => {this.updatePasswordObfuscator("type", value);})}>
+              {
+                [
+                  {id: "Plain", name: "Plain"},
+                  {id: "AES", name: "AES"},
+                  {id: "DES", name: "DES"},
+                ].map((obfuscatorType, index) => <Option key={index} value={obfuscatorType.id}>{obfuscatorType.name}</Option>)
+              }
+            </Select>
+          </Col>
+        </Row>
+        {
+          (this.state.organization.passwordObfuscatorType === "Plain" || this.state.organization.passwordObfuscatorType === "") ? null : (<Row style={{marginTop: "20px"}} >
+            <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+              {Setting.getLabel(i18next.t("general:Password obf key"), i18next.t("general:Password obf key - Tooltip"))} :
+            </Col>
+            <Col span={22} >
+              <Input value={this.state.organization.passwordObfuscatorKey} onChange={(e) => {this.updatePasswordObfuscator("key", e.target.value);}} />
+            </Col>
+          </Row>)
+        }
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 19 : 2}>
+            {Setting.getLabel(i18next.t("organization:Password expire days"), i18next.t("organization:Password expire days - Tooltip"))} :
+          </Col>
+          <Col span={4} >
+            <InputNumber value={this.state.organization.passwordExpireDays} onChange={value => {
+              this.updateOrganizationField("passwordExpireDays", value);
             }} />
           </Col>
         </Row>
@@ -193,9 +361,26 @@ class OrganizationEditPage extends React.Component {
               }}
               filterOption={(input, option) => (option?.text ?? "").toLowerCase().includes(input.toLowerCase())}
             >
+              {Setting.getCountryCodeOption({name: i18next.t("organization:All"), code: "All", phone: 0})}
               {
                 Setting.getCountryCodeData().map((country) => Setting.getCountryCodeOption(country))
               }
+            </Select>
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("general:Languages"), i18next.t("general:Languages - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <Select virtual={false} mode="multiple" style={{width: "100%"}}
+              options={Setting.Countries.map((item) => {
+                return Setting.getOption(item.label, item.key);
+              })}
+              value={this.state.organization.languages ?? []}
+              onChange={(value => {
+                this.updateOrganizationField("languages", value);
+              })} >
             </Select>
           </Col>
         </Row>
@@ -232,8 +417,20 @@ class OrganizationEditPage extends React.Component {
           </Col>
           <Col span={22} >
             <Select virtual={false} style={{width: "100%"}} value={this.state.organization.defaultApplication} onChange={(value => {this.updateOrganizationField("defaultApplication", value);})}
-              options={this.state.applications?.map((item) => Setting.getOption(item.name, item.name))
+              options={this.state.applications?.map((item) => Setting.getOption(Setting.getApplicationDisplayName(item.name), item.name))
               } />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("organization:User types"), i18next.t("organization:User types - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <Select virtual={false} mode="tags" style={{width: "100%"}} value={this.state.organization.userTypes} onChange={(value => {this.updateOrganizationField("userTypes", value);})}>
+              {
+                this.state.organization.userTypes?.map((item, index) => <Option key={index} value={item}>{item}</Option>)
+              }
+            </Select>
           </Col>
         </Row>
         <Row style={{marginTop: "20px"}} >
@@ -260,18 +457,32 @@ class OrganizationEditPage extends React.Component {
         </Row>
         <Row style={{marginTop: "20px"}} >
           <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
-            {Setting.getLabel(i18next.t("general:Languages"), i18next.t("general:Languages - Tooltip"))} :
+            {Setting.getLabel(i18next.t("general:Default password"), i18next.t("general:Default password - Tooltip"))} :
           </Col>
           <Col span={22} >
-            <Select virtual={false} mode="tags" style={{width: "100%"}}
-              options={Setting.Countries.map((item) => {
-                return Setting.getOption(item.label, item.key);
-              })}
-              value={this.state.organization.languages ?? []}
-              onChange={(value => {
-                this.updateOrganizationField("languages", value);
-              })} >
-            </Select>
+            <Input value={this.state.organization.defaultPassword} onChange={e => {
+              this.updateOrganizationField("defaultPassword", e.target.value);
+            }} />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("general:Master verification code"), i18next.t("general:Master verification code - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <Input value={this.state.organization.masterVerificationCode} onChange={e => {
+              this.updateOrganizationField("masterVerificationCode", e.target.value);
+            }} />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("general:IP whitelist"), i18next.t("general:IP whitelist - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <Input value={this.state.organization.ipWhitelist} onChange={e => {
+              this.updateOrganizationField("ipWhitelist", e.target.value);
+            }} />
           </Col>
         </Row>
         <Row style={{marginTop: "20px"}} >
@@ -305,6 +516,41 @@ class OrganizationEditPage extends React.Component {
           </Col>
         </Row>
         <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 19 : 2}>
+            {Setting.getLabel(i18next.t("organization:Use Email as username"), i18next.t("organization:Use Email as username - Tooltip"))} :
+          </Col>
+          <Col span={1} >
+            <Switch checked={this.state.organization.useEmailAsUsername} onChange={checked => {
+              this.updateOrganizationField("useEmailAsUsername", checked);
+            }} />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 19 : 2}>
+            {Setting.getLabel(i18next.t("general:Enable tour"), i18next.t("general:Enable tour - Tooltip"))} :
+          </Col>
+          <Col span={1} >
+            <Switch checked={this.state.organization.enableTour} onChange={checked => {
+              this.updateOrganizationField("enableTour", checked);
+            }} />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("general:Navbar items"), i18next.t("general:Navbar items - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <NavItemTree
+              disabled={!Setting.isAdminUser(this.props.account)}
+              checkedKeys={this.state.organization.navItems ?? ["all"]}
+              defaultExpandedKeys={["all"]}
+              onCheck={(checked, _) => {
+                this.updateOrganizationField("navItems", checked);
+              }}
+            />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
           <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
             {Setting.getLabel(i18next.t("organization:Account items"), i18next.t("organization:Account items - Tooltip"))} :
           </Col>
@@ -318,11 +564,23 @@ class OrganizationEditPage extends React.Component {
         </Row>
         <Row style={{marginTop: "20px"}} >
           <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("general:MFA items"), i18next.t("general:MFA items - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <MfaTable
+              title={i18next.t("general:MFA items")}
+              table={this.state.organization.mfaItems ?? []}
+              onUpdateTable={(value) => {this.updateOrganizationField("mfaItems", value);}}
+            />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
             {Setting.getLabel(i18next.t("theme:Theme"), i18next.t("theme:Theme - Tooltip"))} :
           </Col>
           <Col span={22} style={{marginTop: "5px"}}>
             <Row>
-              <Radio.Group value={this.state.organization.themeData?.isEnabled ?? false} onChange={e => {
+              <Radio.Group buttonStyle="solid" value={this.state.organization.themeData?.isEnabled ?? false} onChange={e => {
                 const {_, ...theme} = this.state.organization.themeData ?? {...Conf.ThemeDefault, isEnabled: false};
                 this.updateOrganizationField("themeData", {...theme, isEnabled: e.target.value});
               }} >
@@ -360,8 +618,16 @@ class OrganizationEditPage extends React.Component {
     );
   }
 
-  submitOrganizationEdit(willExist) {
+  submitOrganizationEdit(exitAfterSave) {
     const organization = Setting.deepCopy(this.state.organization);
+    organization.accountItems = organization.accountItems?.filter(accountItem => accountItem.name !== "Please select an account item");
+
+    const passwordObfuscatorErrorMessage = Obfuscator.checkPasswordObfuscator(organization.passwordObfuscatorType, organization.passwordObfuscatorKey);
+    if (passwordObfuscatorErrorMessage.length > 0) {
+      Setting.showMessage("error", passwordObfuscatorErrorMessage);
+      return;
+    }
+
     OrganizationBackend.updateOrganization(this.state.organization.owner, this.state.organizationName, organization)
       .then((res) => {
         if (res.status === "ok") {
@@ -374,8 +640,9 @@ class OrganizationEditPage extends React.Component {
           this.setState({
             organizationName: this.state.organization.name,
           });
+          window.dispatchEvent(new Event("storageOrganizationsChanged"));
 
-          if (willExist) {
+          if (exitAfterSave) {
             this.props.history.push("/organizations");
           } else {
             this.props.history.push(`/organizations/${this.state.organization.name}`);
@@ -395,6 +662,7 @@ class OrganizationEditPage extends React.Component {
       .then((res) => {
         if (res.status === "ok") {
           this.props.history.push("/organizations");
+          window.dispatchEvent(new Event("storageOrganizationsChanged"));
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to delete")}: ${res.msg}`);
         }

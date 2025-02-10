@@ -36,7 +36,12 @@ func (db *Database) onDDL(header *replication.EventHeader, nextPos mysql.Positio
 }
 
 func (db *Database) OnRow(e *canal.RowsEvent) error {
-	log.Info("serverId: ", e.Header.ServerID)
+	if e.Header != nil {
+		log.Info("serverId: ", e.Header.ServerID)
+	} else {
+		log.Info("serverId: e.Header == nil")
+	}
+
 	if strings.Contains(db.Gtid, db.serverUuid) {
 		return nil
 	}
@@ -66,13 +71,13 @@ func (db *Database) OnRow(e *canal.RowsEvent) error {
 		for i, row := range e.Rows {
 			for j, item := range row {
 				if i%2 == 0 {
-					if isChar[j] == true {
+					if isChar[j] {
 						oldColumnValue[j] = fmt.Sprintf("%s", item)
 					} else {
 						oldColumnValue[j] = fmt.Sprintf("%d", item)
 					}
 				} else {
-					if isChar[j] == true {
+					if isChar[j] {
 						if item == nil {
 							newColumnValue[j] = nil
 						} else {
@@ -87,11 +92,13 @@ func (db *Database) OnRow(e *canal.RowsEvent) error {
 				pkColumnValue := getPkColumnValues(oldColumnValue, e.Table.PKColumns)
 				updateSql, args, err := getUpdateSql(e.Table.Schema, e.Table.Name, columnNames, newColumnValue, pkColumnNames, pkColumnValue)
 				if err != nil {
+					log.Error(err)
 					return err
 				}
 
 				res, err := db.engine.DB().Exec(updateSql, args...)
 				if err != nil {
+					log.Error(err)
 					return err
 				}
 				log.Info(updateSql, args, res)
@@ -103,7 +110,7 @@ func (db *Database) OnRow(e *canal.RowsEvent) error {
 		db.engine.Exec("BEGIN")
 		for _, row := range e.Rows {
 			for j, item := range row {
-				if isChar[j] == true {
+				if isChar[j] {
 					oldColumnValue[j] = fmt.Sprintf("%s", item)
 				} else {
 					oldColumnValue[j] = fmt.Sprintf("%d", item)
@@ -113,11 +120,13 @@ func (db *Database) OnRow(e *canal.RowsEvent) error {
 			pkColumnValue := getPkColumnValues(oldColumnValue, e.Table.PKColumns)
 			deleteSql, args, err := getDeleteSql(e.Table.Schema, e.Table.Name, pkColumnNames, pkColumnValue)
 			if err != nil {
+				log.Error(err)
 				return err
 			}
 
 			res, err := db.engine.DB().Exec(deleteSql, args...)
 			if err != nil {
+				log.Error(err)
 				return err
 			}
 			log.Info(deleteSql, args, res)
@@ -128,7 +137,7 @@ func (db *Database) OnRow(e *canal.RowsEvent) error {
 		db.engine.Exec("BEGIN")
 		for _, row := range e.Rows {
 			for j, item := range row {
-				if isChar[j] == true {
+				if isChar[j] {
 					if item == nil {
 						newColumnValue[j] = nil
 					} else {
@@ -141,11 +150,13 @@ func (db *Database) OnRow(e *canal.RowsEvent) error {
 
 			insertSql, args, err := getInsertSql(e.Table.Schema, e.Table.Name, columnNames, newColumnValue)
 			if err != nil {
+				log.Error(err)
 				return err
 			}
 
 			res, err := db.engine.DB().Exec(insertSql, args...)
 			if err != nil {
+				log.Error(err)
 				return err
 			}
 			log.Info(insertSql, args, res)

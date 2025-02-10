@@ -15,20 +15,31 @@
 package object
 
 import (
+	"io"
 	"net/http"
 	"strings"
 
 	"github.com/casdoor/casdoor/util"
+	"github.com/casvisor/casvisor-go-sdk/casvisorsdk"
 )
 
-func sendWebhook(webhook *Webhook, record *Record) error {
+func sendWebhook(webhook *Webhook, record *casvisorsdk.Record, extendedUser *User) (int, string, error) {
 	client := &http.Client{}
 
-	body := strings.NewReader(util.StructToJson(record))
+	type RecordEx struct {
+		casvisorsdk.Record
+		ExtendedUser *User `xorm:"-" json:"extendedUser"`
+	}
+	recordEx := &RecordEx{
+		Record:       *record,
+		ExtendedUser: extendedUser,
+	}
+
+	body := strings.NewReader(util.StructToJson(recordEx))
 
 	req, err := http.NewRequest(webhook.Method, webhook.Url, body)
 	if err != nil {
-		return err
+		return 0, "", err
 	}
 
 	req.Header.Set("Content-Type", webhook.ContentType)
@@ -37,6 +48,15 @@ func sendWebhook(webhook *Webhook, record *Record) error {
 		req.Header.Set(header.Name, header.Value)
 	}
 
-	_, err = client.Do(req)
-	return err
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, "", err
+	}
+
+	defer resp.Body.Close()
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, "", err
+	}
+	return resp.StatusCode, string(bodyBytes), err
 }

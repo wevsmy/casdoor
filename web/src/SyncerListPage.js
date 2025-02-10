@@ -20,16 +20,17 @@ import * as Setting from "./Setting";
 import * as SyncerBackend from "./backend/SyncerBackend";
 import i18next from "i18next";
 import BaseListPage from "./BaseListPage";
-import PopconfirmModal from "./PopconfirmModal";
+import PopconfirmModal from "./common/modal/PopconfirmModal";
 
 class SyncerListPage extends BaseListPage {
   newSyncer() {
     const randomName = Setting.getRandomName();
+    const organizationName = Setting.getRequestOrganization(this.props.account);
     return {
       owner: "admin",
       name: `syncer_${randomName}`,
       createdTime: moment().format(),
-      organization: "built-in",
+      organization: organizationName,
       type: "Database",
       host: "localhost",
       port: 3306,
@@ -37,11 +38,12 @@ class SyncerListPage extends BaseListPage {
       password: "123456",
       databaseType: "mysql",
       database: "dbName",
-      table: "tableName",
+      table: "table_name",
       tableColumns: [],
       affiliationTable: "",
       avatarBaseUrl: "",
       syncInterval: 10,
+      isReadOnly: false,
       isEnabled: false,
     };
   }
@@ -67,9 +69,11 @@ class SyncerListPage extends BaseListPage {
       .then((res) => {
         if (res.status === "ok") {
           Setting.showMessage("success", i18next.t("general:Successfully deleted"));
-          this.setState({
-            data: Setting.deleteRow(this.state.data, i),
-            pagination: {total: this.state.pagination.total - 1},
+          this.fetch({
+            pagination: {
+              ...this.state.pagination,
+              current: this.state.pagination.current > 1 && this.state.data.length === 1 ? this.state.pagination.current - 1 : this.state.pagination.current,
+            },
           });
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to delete")}: ${res.msg}`);
@@ -84,8 +88,13 @@ class SyncerListPage extends BaseListPage {
     this.setState({loading: true});
     SyncerBackend.runSyncer("admin", this.state.data[i].name)
       .then((res) => {
-        this.setState({loading: false});
-        Setting.showMessage("success", "Syncer sync users successfully");
+        if (res.status === "ok") {
+          this.setState({loading: false});
+          Setting.showMessage("success", i18next.t("general:Successfully synced"));
+        } else {
+          this.setState({loading: false});
+          Setting.showMessage("error", `${i18next.t("general:Failed to sync")}: ${res.msg}`);
+        }
       }
       )
       .catch(error => {
@@ -150,6 +159,13 @@ class SyncerListPage extends BaseListPage {
         ],
       },
       {
+        title: i18next.t("syncer:Database type"),
+        dataIndex: "databaseType",
+        key: "databaseType",
+        width: "130px",
+        sorter: (a, b) => a.databaseType.localeCompare(b.databaseType),
+      },
+      {
         title: i18next.t("provider:Host"),
         dataIndex: "host",
         key: "host",
@@ -182,13 +198,6 @@ class SyncerListPage extends BaseListPage {
         ...this.getColumnSearchProps("password"),
       },
       {
-        title: i18next.t("syncer:Database type"),
-        dataIndex: "databaseType",
-        key: "databaseType",
-        width: "120px",
-        sorter: (a, b) => a.databaseType.localeCompare(b.databaseType),
-      },
-      {
         title: i18next.t("syncer:Database"),
         dataIndex: "database",
         key: "database",
@@ -206,7 +215,7 @@ class SyncerListPage extends BaseListPage {
         title: i18next.t("syncer:Sync interval"),
         dataIndex: "syncInterval",
         key: "syncInterval",
-        width: "130px",
+        width: "140px",
         sorter: true,
         ...this.getColumnSearchProps("syncInterval"),
       },
@@ -275,11 +284,13 @@ class SyncerListPage extends BaseListPage {
       value = params.type;
     }
     this.setState({loading: true});
-    SyncerBackend.getSyncers("admin", params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
+    SyncerBackend.getSyncers("admin", Setting.isDefaultOrganizationSelected(this.props.account) ? "" : Setting.getRequestOrganization(this.props.account), params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
       .then((res) => {
+        this.setState({
+          loading: false,
+        });
         if (res.status === "ok") {
           this.setState({
-            loading: false,
             data: res.data,
             pagination: {
               ...params.pagination,
@@ -291,9 +302,10 @@ class SyncerListPage extends BaseListPage {
         } else {
           if (Setting.isResponseDenied(res)) {
             this.setState({
-              loading: false,
               isAuthorized: false,
             });
+          } else {
+            Setting.showMessage("error", res.msg);
           }
         }
       });

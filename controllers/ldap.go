@@ -23,7 +23,8 @@ import (
 
 type LdapResp struct {
 	// Groups []LdapRespGroup `json:"groups"`
-	Users []object.LdapRespUser `json:"users"`
+	Users      []object.LdapUser `json:"users"`
+	ExistUuids []string          `json:"existUuids"`
 }
 
 //type LdapRespGroup struct {
@@ -32,25 +33,33 @@ type LdapResp struct {
 //}
 
 type LdapSyncResp struct {
-	Exist  []object.LdapRespUser `json:"exist"`
-	Failed []object.LdapRespUser `json:"failed"`
+	Exist  []object.LdapUser `json:"exist"`
+	Failed []object.LdapUser `json:"failed"`
 }
 
 // GetLdapUsers
-// @Tag Account API
 // @Title GetLdapser
+// @Tag Account API
+// @Description get ldap users
+// Param	id	string	true	"id"
+// @Success 200 {object} controllers.LdapResp The Response object
 // @router /get-ldap-users [get]
 func (c *ApiController) GetLdapUsers() {
 	id := c.Input().Get("id")
 
 	_, ldapId := util.GetOwnerAndNameFromId(id)
-	ldapServer := object.GetLdap(ldapId)
+	ldapServer, err := object.GetLdap(ldapId)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
 
 	conn, err := ldapServer.GetLdapConn()
 	if err != nil {
 		c.ResponseError(err.Error())
 		return
 	}
+	defer conn.Close()
 
 	//groupsMap, err := conn.GetLdapGroups(ldapServer.BaseDn)
 	//if err != nil {
@@ -71,42 +80,42 @@ func (c *ApiController) GetLdapUsers() {
 		return
 	}
 
-	var resp LdapResp
 	uuids := make([]string, len(users))
-	for _, user := range users {
-		resp.Users = append(resp.Users, object.LdapRespUser{
-			UidNumber: user.UidNumber,
-			Uid:       user.Uid,
-			Cn:        user.Cn,
-			GroupId:   user.GidNumber,
-			// GroupName: groupsMap[user.GidNumber].Cn,
-			Uuid:        user.Uuid,
-			DisplayName: user.DisplayName,
-			Email:       util.GetMaxLenStr(user.Mail, user.Email, user.EmailAddress),
-			Phone:       util.GetMaxLenStr(user.TelephoneNumber, user.Mobile, user.MobileTelephoneNumber),
-			Address:     util.GetMaxLenStr(user.RegisteredAddress, user.PostalAddress),
-		})
-		uuids = append(uuids, user.Uuid)
+	for i, user := range users {
+		uuids[i] = user.GetLdapUuid()
+	}
+	existUuids, err := object.GetExistUuids(ldapServer.Owner, uuids)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
 	}
 
-	existUuids := object.GetExistUuids(ldapServer.Owner, uuids)
-
-	c.ResponseOk(resp, existUuids)
+	resp := LdapResp{
+		Users:      object.AutoAdjustLdapUser(users),
+		ExistUuids: existUuids,
+	}
+	c.ResponseOk(resp)
 }
 
 // GetLdaps
-// @Tag Account API
 // @Title GetLdaps
+// @Tag Account API
+// @Description get ldaps
+// @Param	owner	query	string	false	"owner"
+// @Success 200 {array} object.Ldap The Response object
 // @router /get-ldaps [get]
 func (c *ApiController) GetLdaps() {
 	owner := c.Input().Get("owner")
 
-	c.ResponseOk(object.GetLdaps(owner))
+	c.ResponseOk(object.GetMaskedLdaps(object.GetLdaps(owner)))
 }
 
 // GetLdap
-// @Tag Account API
 // @Title GetLdap
+// @Tag Account API
+// @Description get ldap
+// @Param	id	query	string	true	"id"
+// @Success 200 {object} object.Ldap The Response object
 // @router /get-ldap [get]
 func (c *ApiController) GetLdap() {
 	id := c.Input().Get("id")
@@ -117,12 +126,20 @@ func (c *ApiController) GetLdap() {
 	}
 
 	_, name := util.GetOwnerAndNameFromId(id)
-	c.ResponseOk(object.GetLdap(name))
+	ldap, err := object.GetLdap(name)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+	c.ResponseOk(object.GetMaskedLdap(ldap))
 }
 
 // AddLdap
-// @Tag Account API
 // @Title AddLdap
+// @Tag Account API
+// @Description add ldap
+// @Param	body	body	object.Ldap		true	"The details of the ldap"
+// @Success 200 {object} controllers.Response The Response object
 // @router /add-ldap [post]
 func (c *ApiController) AddLdap() {
 	var ldap object.Ldap
@@ -137,17 +154,23 @@ func (c *ApiController) AddLdap() {
 		return
 	}
 
-	if object.CheckLdapExist(&ldap) {
+	if ok, err := object.CheckLdapExist(&ldap); err != nil {
+		c.ResponseError(err.Error())
+		return
+	} else if ok {
 		c.ResponseError(c.T("ldap:Ldap server exist"))
 		return
 	}
 
-	affected := object.AddLdap(&ldap)
-	resp := wrapActionResponse(affected)
+	resp := wrapActionResponse(object.AddLdap(&ldap))
 	resp.Data2 = ldap
 
 	if ldap.AutoSync != 0 {
-		object.GetLdapAutoSynchronizer().StartAutoSync(ldap.Id)
+		err = object.GetLdapAutoSynchronizer().StartAutoSync(ldap.Id)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
 	}
 
 	c.Data["json"] = resp
@@ -155,8 +178,11 @@ func (c *ApiController) AddLdap() {
 }
 
 // UpdateLdap
-// @Tag Account API
 // @Title UpdateLdap
+// @Tag Account API
+// @Description update ldap
+// @Param	body	body	object.Ldap		true	"The details of the ldap"
+// @Success 200 {object} controllers.Response The Response object
 // @router /update-ldap [post]
 func (c *ApiController) UpdateLdap() {
 	var ldap object.Ldap
@@ -166,11 +192,24 @@ func (c *ApiController) UpdateLdap() {
 		return
 	}
 
-	prevLdap := object.GetLdap(ldap.Id)
-	affected := object.UpdateLdap(&ldap)
+	prevLdap, err := object.GetLdap(ldap.Id)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	affected, err := object.UpdateLdap(&ldap)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
 
 	if ldap.AutoSync != 0 {
-		object.GetLdapAutoSynchronizer().StartAutoSync(ldap.Id)
+		err := object.GetLdapAutoSynchronizer().StartAutoSync(ldap.Id)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
 	} else if ldap.AutoSync == 0 && prevLdap.AutoSync != 0 {
 		object.GetLdapAutoSynchronizer().StopAutoSync(ldap.Id)
 	}
@@ -180,8 +219,11 @@ func (c *ApiController) UpdateLdap() {
 }
 
 // DeleteLdap
-// @Tag Account API
 // @Title DeleteLdap
+// @Tag Account API
+// @Description delete ldap
+// @Param	body	body	object.Ldap		true	"The details of the ldap"
+// @Success 200 {object} controllers.Response The Response object
 // @router /delete-ldap [post]
 func (c *ApiController) DeleteLdap() {
 	var ldap object.Ldap
@@ -191,7 +233,11 @@ func (c *ApiController) DeleteLdap() {
 		return
 	}
 
-	affected := object.DeleteLdap(&ldap)
+	affected, err := object.DeleteLdap(&ldap)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
 
 	object.GetLdapAutoSynchronizer().StopAutoSync(ldap.Id)
 
@@ -200,25 +246,33 @@ func (c *ApiController) DeleteLdap() {
 }
 
 // SyncLdapUsers
-// @Tag Account API
 // @Title SyncLdapUsers
+// @Tag Account API
+// @Description sync ldap users
+// @Param	id	query	string		true	"id"
+// @Success 200 {object} controllers.LdapSyncResp The Response object
 // @router /sync-ldap-users [post]
 func (c *ApiController) SyncLdapUsers() {
-	owner := c.Input().Get("owner")
-	ldapId := c.Input().Get("ldapId")
-	var users []object.LdapRespUser
+	id := c.Input().Get("id")
+
+	owner, ldapId := util.GetOwnerAndNameFromId(id)
+	var users []object.LdapUser
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &users)
 	if err != nil {
 		c.ResponseError(err.Error())
 		return
 	}
 
-	object.UpdateLdapSyncTime(ldapId)
+	err = object.UpdateLdapSyncTime(ldapId)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
 
-	exist, failed := object.SyncLdapUsers(owner, users, ldapId)
+	exist, failed, _ := object.SyncLdapUsers(owner, users, ldapId)
 
 	c.ResponseOk(&LdapSyncResp{
-		Exist:  *exist,
-		Failed: *failed,
+		Exist:  exist,
+		Failed: failed,
 	})
 }

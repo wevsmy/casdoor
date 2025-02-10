@@ -21,13 +21,14 @@ import * as ProductBackend from "./backend/ProductBackend";
 import i18next from "i18next";
 import BaseListPage from "./BaseListPage";
 import {EditOutlined} from "@ant-design/icons";
-import PopconfirmModal from "./PopconfirmModal";
+import PopconfirmModal from "./common/modal/PopconfirmModal";
 
 class ProductListPage extends BaseListPage {
   newProduct() {
     const randomName = Setting.getRandomName();
+    const owner = Setting.getRequestOrganization(this.props.account);
     return {
-      owner: "admin",
+      owner: owner,
       name: `product_${randomName}`,
       createdTime: moment().format(),
       displayName: `New Product - ${randomName}`,
@@ -37,6 +38,7 @@ class ProductListPage extends BaseListPage {
       price: 300,
       quantity: 99,
       sold: 10,
+      isRecharge: false,
       providers: [],
       state: "Published",
     };
@@ -47,7 +49,7 @@ class ProductListPage extends BaseListPage {
     ProductBackend.addProduct(newProduct)
       .then((res) => {
         if (res.status === "ok") {
-          this.props.history.push({pathname: `/products/${newProduct.name}`, mode: "add"});
+          this.props.history.push({pathname: `/products/${newProduct.owner}/${newProduct.name}`, mode: "add"});
           Setting.showMessage("success", i18next.t("general:Successfully added"));
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to add")}: ${res.msg}`);
@@ -63,9 +65,11 @@ class ProductListPage extends BaseListPage {
       .then((res) => {
         if (res.status === "ok") {
           Setting.showMessage("success", i18next.t("general:Successfully deleted"));
-          this.setState({
-            data: Setting.deleteRow(this.state.data, i),
-            pagination: {total: this.state.pagination.total - 1},
+          this.fetch({
+            pagination: {
+              ...this.state.pagination,
+              current: this.state.pagination.current > 1 && this.state.data.length === 1 ? this.state.pagination.current - 1 : this.state.pagination.current,
+            },
           });
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to delete")}: ${res.msg}`);
@@ -88,7 +92,22 @@ class ProductListPage extends BaseListPage {
         ...this.getColumnSearchProps("name"),
         render: (text, record, index) => {
           return (
-            <Link to={`/products/${text}`}>
+            <Link to={`/products/${record.owner}/${text}`}>
+              {text}
+            </Link>
+          );
+        },
+      },
+      {
+        title: i18next.t("general:Organization"),
+        dataIndex: "owner",
+        key: "owner",
+        width: "150px",
+        sorter: true,
+        ...this.getColumnSearchProps("owner"),
+        render: (text, record, index) => {
+          return (
+            <Link to={`/organizations/${text}`}>
               {text}
             </Link>
           );
@@ -180,6 +199,7 @@ class ProductListPage extends BaseListPage {
         width: "500px",
         ...this.getColumnSearchProps("providers"),
         render: (text, record, index) => {
+          const providerOwner = record.owner;
           const providers = text;
           if (providers.length === 0) {
             return `(${i18next.t("general:empty")})`;
@@ -193,14 +213,14 @@ class ProductListPage extends BaseListPage {
                 size="small"
                 locale={{emptyText: " "}}
                 dataSource={providers}
-                renderItem={(providerName, i) => {
+                renderItem={(providerName, record, i) => {
                   return (
                     <List.Item>
                       <div style={{display: "inline"}}>
                         <Tooltip placement="topLeft" title="Edit">
-                          <Button style={{marginRight: "5px"}} icon={<EditOutlined />} size="small" onClick={() => Setting.goToLinkSoft(this, `/providers/${providerName}`)} />
+                          <Button style={{marginRight: "5px"}} icon={<EditOutlined />} size="small" onClick={() => Setting.goToLinkSoft(this, `/providers/${providerOwner}/${providerName}`)} />
                         </Tooltip>
-                        <Link to={`/providers/${providerName}`}>
+                        <Link to={`/providers/${providerOwner}/${providerName}`}>
                           {providerName}
                         </Link>
                       </div>
@@ -236,11 +256,13 @@ class ProductListPage extends BaseListPage {
         width: "230px",
         fixed: (Setting.isMobile()) ? "false" : "right",
         render: (text, record, index) => {
+          const isCreatedByPlan = record.tag === "auto_created_product_for_plan";
           return (
             <div>
-              <Button style={{marginTop: "10px", marginBottom: "10px", marginRight: "10px"}} onClick={() => this.props.history.push(`/products/${record.name}/buy`)}>{i18next.t("product:Buy")}</Button>
-              <Button style={{marginTop: "10px", marginBottom: "10px", marginRight: "10px"}} type="primary" onClick={() => this.props.history.push(`/products/${record.name}`)}>{i18next.t("general:Edit")}</Button>
+              <Button style={{marginTop: "10px", marginBottom: "10px", marginRight: "10px"}} onClick={() => this.props.history.push(`/products/${record.owner}/${record.name}/buy`)}>{i18next.t("product:Buy")}</Button>
+              <Button style={{marginTop: "10px", marginBottom: "10px", marginRight: "10px"}} type="primary" onClick={() => this.props.history.push(`/products/${record.owner}/${record.name}`)}>{i18next.t("general:Edit")}</Button>
               <PopconfirmModal
+                disabled={isCreatedByPlan}
                 title={i18next.t("general:Sure to delete") + `: ${record.name} ?`}
                 onConfirm={() => this.deleteProduct(index)}
               >
@@ -260,7 +282,7 @@ class ProductListPage extends BaseListPage {
 
     return (
       <div>
-        <Table scroll={{x: "max-content"}} columns={columns} dataSource={products} rowKey="name" size="middle" bordered pagination={paginationProps}
+        <Table scroll={{x: "max-content"}} columns={columns} dataSource={products} rowKey={(record) => `${record.owner}/${record.name}`} size="middle" bordered pagination={paginationProps}
           title={() => (
             <div>
               {i18next.t("general:Products")}&nbsp;&nbsp;&nbsp;&nbsp;
@@ -282,11 +304,13 @@ class ProductListPage extends BaseListPage {
       value = params.type;
     }
     this.setState({loading: true});
-    ProductBackend.getProducts("", params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
+    ProductBackend.getProducts(Setting.isDefaultOrganizationSelected(this.props.account) ? "" : Setting.getRequestOrganization(this.props.account), params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
       .then((res) => {
+        this.setState({
+          loading: false,
+        });
         if (res.status === "ok") {
           this.setState({
-            loading: false,
             data: res.data,
             pagination: {
               ...params.pagination,
@@ -298,9 +322,10 @@ class ProductListPage extends BaseListPage {
         } else {
           if (Setting.isResponseDenied(res)) {
             this.setState({
-              loading: false,
               isAuthorized: false,
             });
+          } else {
+            Setting.showMessage("error", res.msg);
           }
         }
       });

@@ -13,13 +13,14 @@
 // limitations under the License.
 
 import React from "react";
-import {Button, Card, Col, Input, InputNumber, Row, Select} from "antd";
+import {Button, Card, Col, Input, InputNumber, Row, Select, Switch} from "antd";
 import * as ProductBackend from "./backend/ProductBackend";
 import * as Setting from "./Setting";
 import i18next from "i18next";
 import {LinkOutlined} from "@ant-design/icons";
 import * as ProviderBackend from "./backend/ProviderBackend";
 import ProductBuyPage from "./ProductBuyPage";
+import * as OrganizationBackend from "./backend/OrganizationBackend";
 
 const {Option} = Select;
 
@@ -32,30 +33,50 @@ class ProductEditPage extends React.Component {
       productName: props.match.params.productName,
       product: null,
       providers: [],
+      organizations: [],
       mode: props.location.mode !== undefined ? props.location.mode : "edit",
     };
   }
 
   UNSAFE_componentWillMount() {
     this.getProduct();
-    this.getPaymentProviders();
+    this.getOrganizations();
+    this.getPaymentProviders(this.state.organizationName);
   }
 
   getProduct() {
-    ProductBackend.getProduct("admin", this.state.productName)
-      .then((product) => {
+    ProductBackend.getProduct(this.state.organizationName, this.state.productName)
+      .then((res) => {
+        if (res.data === null) {
+          this.props.history.push("/404");
+          return;
+        }
+
         this.setState({
-          product: product,
+          product: res.data,
         });
       });
   }
 
-  getPaymentProviders() {
-    ProviderBackend.getProviders("admin")
+  getOrganizations() {
+    OrganizationBackend.getOrganizations("admin")
       .then((res) => {
         this.setState({
-          providers: res.filter(provider => provider.category === "Payment"),
+          organizations: res.data || [],
         });
+      });
+  }
+
+  getPaymentProviders(organizationName) {
+    ProviderBackend.getProviders(organizationName)
+      .then((res) => {
+        if (res.status === "ok") {
+          this.setState({
+            providers: res.data.filter(provider => provider.category === "Payment"),
+          });
+        } else {
+          Setting.showMessage("error", res.msg);
+        }
       });
   }
 
@@ -77,6 +98,7 @@ class ProductEditPage extends React.Component {
   }
 
   renderProduct() {
+    const isCreatedByPlan = this.state.product.tag === "auto_created_product_for_plan";
     return (
       <Card size="small" title={
         <div>
@@ -86,12 +108,24 @@ class ProductEditPage extends React.Component {
           {this.state.mode === "add" ? <Button style={{marginLeft: "20px"}} onClick={() => this.deleteProduct()}>{i18next.t("general:Cancel")}</Button> : null}
         </div>
       } style={(Setting.isMobile()) ? {margin: "5px"} : {}} type="inner">
+        <Row style={{marginTop: "10px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("general:Organization"), i18next.t("general:Organization - Tooltip"))} :
+          </Col>
+          <Col span={22} >
+            <Select virtual={false} style={{width: "100%"}} disabled={!Setting.isAdminUser(this.props.account) || isCreatedByPlan} value={this.state.product.owner} onChange={(value => {this.updateProductField("owner", value);})}>
+              {
+                this.state.organizations.map((organization, index) => <Option key={index} value={organization.name}>{organization.name}</Option>)
+              }
+            </Select>
+          </Col>
+        </Row>
         <Row style={{marginTop: "20px"}} >
           <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
             {Setting.getLabel(i18next.t("general:Name"), i18next.t("general:Name - Tooltip"))} :
           </Col>
           <Col span={22} >
-            <Input value={this.state.product.name} onChange={e => {
+            <Input value={this.state.product.name} disabled={isCreatedByPlan} onChange={e => {
               this.updateProductField("name", e.target.value);
             }} />
           </Col>
@@ -138,7 +172,7 @@ class ProductEditPage extends React.Component {
             {Setting.getLabel(i18next.t("user:Tag"), i18next.t("product:Tag - Tooltip"))} :
           </Col>
           <Col span={22} >
-            <Input value={this.state.product.tag} onChange={e => {
+            <Input value={this.state.product.tag} disabled={isCreatedByPlan} onChange={e => {
               this.updateProductField("tag", e.target.value);
             }} />
           </Col>
@@ -168,13 +202,21 @@ class ProductEditPage extends React.Component {
             {Setting.getLabel(i18next.t("payment:Currency"), i18next.t("payment:Currency - Tooltip"))} :
           </Col>
           <Col span={22} >
-            <Select virtual={false} style={{width: "100%"}} value={this.state.product.currency} onChange={(value => {
+            <Select virtual={false} style={{width: "100%"}} value={this.state.product.currency} disabled={isCreatedByPlan} onChange={(value => {
               this.updateProductField("currency", value);
             })}>
               {
                 [
                   {id: "USD", name: "USD"},
                   {id: "CNY", name: "CNY"},
+                  {id: "EUR", name: "EUR"},
+                  {id: "JPY", name: "JPY"},
+                  {id: "GBP", name: "GBP"},
+                  {id: "AUD", name: "AUD"},
+                  {id: "CAD", name: "CAD"},
+                  {id: "CHF", name: "CHF"},
+                  {id: "HKD", name: "HKD"},
+                  {id: "SGD", name: "SGD"},
                 ].map((item, index) => <Option key={index} value={item.id}>{item.name}</Option>)
               }
             </Select>
@@ -182,20 +224,33 @@ class ProductEditPage extends React.Component {
         </Row>
         <Row style={{marginTop: "20px"}} >
           <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
-            {Setting.getLabel(i18next.t("product:Price"), i18next.t("product:Price - Tooltip"))} :
+            {Setting.getLabel(i18next.t("product:Is recharge"), i18next.t("product:Is recharge - Tooltip"))} :
           </Col>
           <Col span={22} >
-            <InputNumber value={this.state.product.price} onChange={value => {
-              this.updateProductField("price", value);
+            <Switch checked={this.state.product.isRecharge} onChange={value => {
+              this.updateProductField("isRecharge", value);
             }} />
           </Col>
         </Row>
+        {
+          this.state.product.isRecharge ? null : (
+            <Row style={{marginTop: "20px"}} >
+              <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+                {Setting.getLabel(i18next.t("product:Price"), i18next.t("product:Price - Tooltip"))} :
+              </Col>
+              <Col span={22} >
+                <InputNumber value={this.state.product.price} disabled={isCreatedByPlan} onChange={value => {
+                  this.updateProductField("price", value);
+                }} />
+              </Col>
+            </Row>
+          )}
         <Row style={{marginTop: "20px"}} >
           <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
             {Setting.getLabel(i18next.t("product:Quantity"), i18next.t("product:Quantity - Tooltip"))} :
           </Col>
           <Col span={22} >
-            <InputNumber value={this.state.product.quantity} onChange={value => {
+            <InputNumber value={this.state.product.quantity} disabled={isCreatedByPlan} onChange={value => {
               this.updateProductField("quantity", value);
             }} />
           </Col>
@@ -205,7 +260,7 @@ class ProductEditPage extends React.Component {
             {Setting.getLabel(i18next.t("product:Sold"), i18next.t("product:Sold - Tooltip"))} :
           </Col>
           <Col span={22} >
-            <InputNumber value={this.state.product.sold} onChange={value => {
+            <InputNumber value={this.state.product.sold} disabled={isCreatedByPlan} onChange={value => {
               this.updateProductField("sold", value);
             }} />
           </Col>
@@ -215,7 +270,7 @@ class ProductEditPage extends React.Component {
             {Setting.getLabel(i18next.t("product:Payment providers"), i18next.t("product:Payment providers - Tooltip"))} :
           </Col>
           <Col span={22} >
-            <Select virtual={false} mode="tags" style={{width: "100%"}} value={this.state.product.providers} onChange={(value => {this.updateProductField("providers", value);})}>
+            <Select virtual={false} mode="multiple" style={{width: "100%"}} disabled={isCreatedByPlan} value={this.state.product.providers} onChange={(value => {this.updateProductField("providers", value);})}>
               {
                 this.state.providers.map((provider, index) => <Option key={index} value={provider.name}>{provider.name}</Option>)
               }
@@ -262,7 +317,7 @@ class ProductEditPage extends React.Component {
   }
 
   renderPreview() {
-    const buyUrl = `/products/${this.state.product.name}/buy`;
+    const buyUrl = `/products/${this.state.product.owner}/${this.state.product.name}/buy`;
     return (
       <Col span={22} style={{display: "flex", flexDirection: "column"}}>
         <a style={{marginBottom: "10px", display: "flex"}} target="_blank" rel="noreferrer" href={buyUrl}>
@@ -277,9 +332,9 @@ class ProductEditPage extends React.Component {
     );
   }
 
-  submitProductEdit(willExist) {
+  submitProductEdit(exitAfterSave) {
     const product = Setting.deepCopy(this.state.product);
-    ProductBackend.updateProduct(this.state.product.owner, this.state.productName, product)
+    ProductBackend.updateProduct(this.state.organizationName, this.state.productName, product)
       .then((res) => {
         if (res.status === "ok") {
           Setting.showMessage("success", i18next.t("general:Successfully saved"));
@@ -287,10 +342,10 @@ class ProductEditPage extends React.Component {
             productName: this.state.product.name,
           });
 
-          if (willExist) {
+          if (exitAfterSave) {
             this.props.history.push("/products");
           } else {
-            this.props.history.push(`/products/${this.state.product.name}`);
+            this.props.history.push(`/products/${this.state.product.owner}/${this.state.product.name}`);
           }
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to save")}: ${res.msg}`);

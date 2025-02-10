@@ -17,6 +17,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/beego/beego/utils/pagination"
 	"github.com/casdoor/casdoor/object"
@@ -38,13 +39,30 @@ func (c *ApiController) GetProducts() {
 	value := c.Input().Get("value")
 	sortField := c.Input().Get("sortField")
 	sortOrder := c.Input().Get("sortOrder")
+
 	if limit == "" || page == "" {
-		c.Data["json"] = object.GetProducts(owner)
-		c.ServeJSON()
+		products, err := object.GetProducts(owner)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
+		c.ResponseOk(products)
 	} else {
 		limit := util.ParseInt(limit)
-		paginator := pagination.SetPaginator(c.Ctx, limit, int64(object.GetProductCount(owner, field, value)))
-		products := object.GetPaginationProducts(owner, paginator.Offset(), limit, field, value, sortField, sortOrder)
+		count, err := object.GetProductCount(owner, field, value)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
+		paginator := pagination.SetPaginator(c.Ctx, limit, count)
+		products, err := object.GetPaginationProducts(owner, paginator.Offset(), limit, field, value, sortField, sortOrder)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
 		c.ResponseOk(products, paginator.Nums())
 	}
 }
@@ -59,11 +77,19 @@ func (c *ApiController) GetProducts() {
 func (c *ApiController) GetProduct() {
 	id := c.Input().Get("id")
 
-	product := object.GetProduct(id)
-	object.ExtendProductWithProviders(product)
+	product, err := object.GetProduct(id)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
 
-	c.Data["json"] = product
-	c.ServeJSON()
+	err = object.ExtendProductWithProviders(product)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	c.ResponseOk(product)
 }
 
 // UpdateProduct
@@ -136,26 +162,53 @@ func (c *ApiController) DeleteProduct() {
 // @router /buy-product [post]
 func (c *ApiController) BuyProduct() {
 	id := c.Input().Get("id")
-	providerName := c.Input().Get("providerName")
 	host := c.Ctx.Request.Host
-
-	userId := c.GetSessionUsername()
-	if userId == "" {
-		c.ResponseError(c.T("general:Please login first"))
-		return
+	providerName := c.Input().Get("providerName")
+	paymentEnv := c.Input().Get("paymentEnv")
+	customPriceStr := c.Input().Get("customPrice")
+	if customPriceStr == "" {
+		customPriceStr = "0"
 	}
 
-	user := object.GetUser(userId)
-	if user == nil {
-		c.ResponseError(fmt.Sprintf(c.T("general:The user: %s doesn't exist"), userId))
-		return
-	}
-
-	payUrl, err := object.BuyProduct(id, providerName, user, host)
+	customPrice, err := strconv.ParseFloat(customPriceStr, 64)
 	if err != nil {
 		c.ResponseError(err.Error())
 		return
 	}
 
-	c.ResponseOk(payUrl)
+	// buy `pricingName/planName` for `paidUserName`
+	pricingName := c.Input().Get("pricingName")
+	planName := c.Input().Get("planName")
+	paidUserName := c.Input().Get("userName")
+	owner, _ := util.GetOwnerAndNameFromId(id)
+	userId := util.GetId(owner, paidUserName)
+	if paidUserName != "" && !c.IsAdmin() {
+		c.ResponseError(c.T("general:Only admin user can specify user"))
+		return
+	}
+	if paidUserName == "" {
+		userId = c.GetSessionUsername()
+	}
+	if userId == "" {
+		c.ResponseError(c.T("general:Please login first"))
+		return
+	}
+
+	user, err := object.GetUser(userId)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+	if user == nil {
+		c.ResponseError(fmt.Sprintf(c.T("general:The user: %s doesn't exist"), userId))
+		return
+	}
+
+	payment, attachInfo, err := object.BuyProduct(id, user, providerName, pricingName, planName, host, paymentEnv, customPrice)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	c.ResponseOk(payment, attachInfo)
 }

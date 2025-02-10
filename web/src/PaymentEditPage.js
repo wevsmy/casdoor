@@ -40,10 +40,15 @@ class PaymentEditPage extends React.Component {
   }
 
   getPayment() {
-    PaymentBackend.getPayment("admin", this.state.paymentName)
-      .then((payment) => {
+    PaymentBackend.getPayment(this.state.organizationName, this.state.paymentName)
+      .then((res) => {
+        if (res.data === null) {
+          this.props.history.push("/404");
+          return;
+        }
+
         this.setState({
-          payment: payment,
+          payment: res.data,
         });
 
         Setting.scrollToDiv("invoice-area");
@@ -158,7 +163,7 @@ class PaymentEditPage extends React.Component {
             {Setting.getLabel(i18next.t("general:Organization"), i18next.t("general:Organization - Tooltip"))} :
           </Col>
           <Col span={22} >
-            <Input disabled={true} value={this.state.payment.organization} onChange={e => {
+            <Input disabled={true} value={this.state.payment.owner} onChange={e => {
               // this.updatePaymentField('organization', e.target.value);
             }} />
           </Col>
@@ -433,7 +438,7 @@ class PaymentEditPage extends React.Component {
     return "";
   }
 
-  submitPaymentEdit(willExist) {
+  submitPaymentEdit(exitAfterSave) {
     const errorText = this.checkError();
     if (errorText !== "") {
       Setting.showMessage("error", errorText);
@@ -449,7 +454,7 @@ class PaymentEditPage extends React.Component {
             paymentName: this.state.payment.name,
           });
 
-          if (willExist) {
+          if (exitAfterSave) {
             this.props.history.push("/payments");
           } else {
             this.props.history.push(`/payments/${this.state.payment.name}`);

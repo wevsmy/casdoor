@@ -32,12 +32,14 @@ type Ldap struct {
 	BaseDn       string   `xorm:"varchar(100)" json:"baseDn"`
 	Filter       string   `xorm:"varchar(200)" json:"filter"`
 	FilterFields []string `xorm:"varchar(100)" json:"filterFields"`
+	DefaultGroup string   `xorm:"varchar(100)" json:"defaultGroup"`
+	PasswordType string   `xorm:"varchar(100)" json:"passwordType"`
 
 	AutoSync int    `json:"autoSync"`
 	LastSync string `xorm:"varchar(100)" json:"lastSync"`
 }
 
-func AddLdap(ldap *Ldap) bool {
+func AddLdap(ldap *Ldap) (bool, error) {
 	if len(ldap.Id) == 0 {
 		ldap.Id = util.GenerateId()
 	}
@@ -46,17 +48,17 @@ func AddLdap(ldap *Ldap) bool {
 		ldap.CreatedTime = util.GetCurrentTime()
 	}
 
-	affected, err := adapter.Engine.Insert(ldap)
+	affected, err := ormer.Engine.Insert(ldap)
 	if err != nil {
-		panic(err)
+		return false, err
 	}
 
-	return affected != 0
+	return affected != 0, nil
 }
 
-func CheckLdapExist(ldap *Ldap) bool {
+func CheckLdapExist(ldap *Ldap) (bool, error) {
 	var result []*Ldap
-	err := adapter.Engine.Find(&result, &Ldap{
+	err := ormer.Engine.Find(&result, &Ldap{
 		Owner:    ldap.Owner,
 		Host:     ldap.Host,
 		Port:     ldap.Port,
@@ -65,63 +67,102 @@ func CheckLdapExist(ldap *Ldap) bool {
 		BaseDn:   ldap.BaseDn,
 	})
 	if err != nil {
-		panic(err)
+		return false, err
 	}
 
 	if len(result) > 0 {
-		return true
+		return true, nil
 	}
 
-	return false
+	return false, nil
 }
 
-func GetLdaps(owner string) []*Ldap {
+func GetLdaps(owner string) ([]*Ldap, error) {
 	var ldaps []*Ldap
-	err := adapter.Engine.Desc("created_time").Find(&ldaps, &Ldap{Owner: owner})
+	err := ormer.Engine.Desc("created_time").Find(&ldaps, &Ldap{Owner: owner})
 	if err != nil {
-		panic(err)
+		return ldaps, err
 	}
 
-	return ldaps
+	return ldaps, nil
 }
 
-func GetLdap(id string) *Ldap {
+func GetLdap(id string) (*Ldap, error) {
 	if util.IsStringsEmpty(id) {
-		return nil
+		return nil, nil
 	}
 
 	ldap := Ldap{Id: id}
-	existed, err := adapter.Engine.Get(&ldap)
+	existed, err := ormer.Engine.Get(&ldap)
 	if err != nil {
-		panic(err)
+		return &ldap, nil
 	}
 
 	if existed {
-		return &ldap
+		return &ldap, nil
 	} else {
-		return nil
+		return nil, nil
 	}
 }
 
-func UpdateLdap(ldap *Ldap) bool {
-	if GetLdap(ldap.Id) == nil {
-		return false
+func GetMaskedLdap(ldap *Ldap, errs ...error) (*Ldap, error) {
+	if len(errs) > 0 && errs[0] != nil {
+		return nil, errs[0]
 	}
 
-	affected, err := adapter.Engine.ID(ldap.Id).Cols("owner", "server_name", "host",
-		"port", "enable_ssl", "username", "password", "base_dn", "filter", "filter_fields", "auto_sync").Update(ldap)
-	if err != nil {
-		panic(err)
+	if ldap == nil {
+		return nil, nil
 	}
 
-	return affected != 0
+	if ldap.Password != "" {
+		ldap.Password = "***"
+	}
+
+	return ldap, nil
 }
 
-func DeleteLdap(ldap *Ldap) bool {
-	affected, err := adapter.Engine.ID(ldap.Id).Delete(&Ldap{})
-	if err != nil {
-		panic(err)
+func GetMaskedLdaps(ldaps []*Ldap, errs ...error) ([]*Ldap, error) {
+	if len(errs) > 0 && errs[0] != nil {
+		return nil, errs[0]
 	}
 
-	return affected != 0
+	var err error
+	for _, ldap := range ldaps {
+		ldap, err = GetMaskedLdap(ldap)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return ldaps, nil
+}
+
+func UpdateLdap(ldap *Ldap) (bool, error) {
+	var l *Ldap
+	var err error
+	if l, err = GetLdap(ldap.Id); err != nil {
+		return false, nil
+	} else if l == nil {
+		return false, nil
+	}
+
+	if ldap.Password == "***" {
+		ldap.Password = l.Password
+	}
+
+	affected, err := ormer.Engine.ID(ldap.Id).Cols("owner", "server_name", "host",
+		"port", "enable_ssl", "username", "password", "base_dn", "filter", "filter_fields", "auto_sync", "default_group", "password_type").Update(ldap)
+	if err != nil {
+		return false, nil
+	}
+
+	return affected != 0, nil
+}
+
+func DeleteLdap(ldap *Ldap) (bool, error) {
+	affected, err := ormer.Engine.ID(ldap.Id).Delete(&Ldap{})
+	if err != nil {
+		return false, err
+	}
+
+	return affected != 0, nil
 }

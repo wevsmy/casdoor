@@ -15,12 +15,13 @@
 package controllers
 
 type TokenRequest struct {
-	GrantType    string `json:"grant_type"`
-	Code         string `json:"code"`
 	ClientId     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
+	GrantType    string `json:"grant_type"`
+	Code         string `json:"code"`
 	Verifier     string `json:"code_verifier"`
 	Scope        string `json:"scope"`
+	Nonce        string `json:"nonce"`
 	Username     string `json:"username"`
 	Password     string `json:"password"`
 	Tag          string `json:"tag"`

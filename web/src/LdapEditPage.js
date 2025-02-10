@@ -13,12 +13,13 @@
 // limitations under the License.
 
 import React from "react";
-import {Button, Card, Col, Input, InputNumber, Row, Select, Switch} from "antd";
-import {EyeInvisibleOutlined, EyeTwoTone} from "@ant-design/icons";
+import {Button, Card, Col, Input, InputNumber, Row, Select, Space, Switch} from "antd";
+import {EyeInvisibleOutlined, EyeTwoTone, HolderOutlined, UsergroupAddOutlined} from "@ant-design/icons";
 import * as LddpBackend from "./backend/LdapBackend";
 import * as OrganizationBackend from "./backend/OrganizationBackend";
 import * as Setting from "./Setting";
 import i18next from "i18next";
+import * as GroupBackend from "./backend/GroupBackend";
 
 const {Option} = Select;
 
@@ -30,12 +31,14 @@ class LdapEditPage extends React.Component {
       organizationName: props.match.params.organizationName,
       ldap: null,
       organizations: [],
+      groups: null,
     };
   }
 
   UNSAFE_componentWillMount() {
     this.getLdap();
     this.getOrganizations();
+    this.getGroups();
   }
 
   getLdap() {
@@ -55,8 +58,19 @@ class LdapEditPage extends React.Component {
     OrganizationBackend.getOrganizations("admin")
       .then((res) => {
         this.setState({
-          organizations: (res.msg === undefined) ? res : [],
+          organizations: res.data || [],
         });
+      });
+  }
+
+  getGroups() {
+    GroupBackend.getGroups(this.state.organizationName)
+      .then((res) => {
+        if (res.status === "ok") {
+          this.setState({
+            groups: res.data,
+          });
+        }
       });
   }
 
@@ -185,6 +199,7 @@ class LdapEditPage extends React.Component {
               {value: "uid", label: "uid"},
               {value: "mail", label: "Email"},
               {value: "mobile", label: "mobile"},
+              {value: "sAMAccountName", label: "sAMAccountName"},
             ].map((item) => Setting.getOption(item.label, item.value))} onChange={value => {
               this.updateLdapField("filterFields", value);
             }} />
@@ -213,6 +228,46 @@ class LdapEditPage extends React.Component {
             />
           </Col>
         </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{lineHeight: "32px", textAlign: "right", paddingRight: "25px"}} span={3}>
+            {Setting.getLabel(i18next.t("general:Password type"), i18next.t("general:Password type - Tooltip"))} :
+          </Col>
+          <Col span={21}>
+            <Select virtual={false} style={{width: "100%"}} value={this.state.ldap.passwordType ?? []} onChange={(value => {
+              this.updateLdapField("passwordType", value);
+            })}
+            >
+              <Option key={"Plain"} value={"Plain"}>{i18next.t("general:Plain")}</Option>
+              <Option key={"SSHA"} value={"SSHA"} >SSHA</Option>
+              <Option key={"MD5"} value={"MD5"} >MD5</Option>
+            </Select>
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{lineHeight: "32px", textAlign: "right", paddingRight: "25px"}} span={3}>
+            {Setting.getLabel(i18next.t("ldap:Default group"), i18next.t("ldap:Default group - Tooltip"))} :
+          </Col>
+          <Col span={21}>
+            <Select virtual={false} style={{width: "100%"}} value={this.state.ldap.defaultGroup ?? []} onChange={(value => {
+              this.updateLdapField("defaultGroup", value);
+            })}
+            >
+              <Option key={""} value={""}>
+                <Space>
+                  {i18next.t("general:Default")}
+                </Space>
+              </Option>
+              {
+                this.state.groups?.map((group) => <Option key={group.name} value={`${group.owner}/${group.name}`}>
+                  <Space>
+                    {group.type === "Physical" ? <UsergroupAddOutlined /> : <HolderOutlined />}
+                    {group.displayName}
+                  </Space>
+                </Option>)
+              }
+            </Select>
+          </Col>
+        </Row>
         <Row style={{marginTop: "20px"}}>
           <Col style={{lineHeight: "32px", textAlign: "right", paddingRight: "25px"}} span={3}>
             {Setting.getLabel(i18next.t("ldap:Auto Sync"), i18next.t("ldap:Auto Sync - Tooltip"))} :
@@ -229,7 +284,7 @@ class LdapEditPage extends React.Component {
     );
   }
 
-  submitLdapEdit(willExist) {
+  submitLdapEdit(exitAfterSave) {
     LddpBackend.updateLdap(this.state.ldap)
       .then((res) => {
         if (res.status === "ok") {
@@ -238,7 +293,7 @@ class LdapEditPage extends React.Component {
             organizationName: this.state.ldap.owner,
           });
 
-          if (willExist) {
+          if (exitAfterSave) {
             this.props.history.push(`/organizations/${this.state.organizationName}`);
           }
         } else {

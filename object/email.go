@@ -16,51 +16,32 @@
 
 package object
 
-import (
-	"crypto/tls"
+import "github.com/casdoor/casdoor/email"
 
-	"github.com/casdoor/gomail/v2"
-)
-
-func getDialer(provider *Provider) *gomail.Dialer {
-	dialer := &gomail.Dialer{}
-	if provider.Type == "SUBMAIL" {
-		dialer = gomail.NewDialer(provider.Host, provider.Port, provider.AppId, provider.ClientSecret)
-		dialer.TLSConfig = &tls.Config{InsecureSkipVerify: true}
-	} else {
-		dialer = gomail.NewDialer(provider.Host, provider.Port, provider.ClientId, provider.ClientSecret)
-	}
-
-	dialer.SSL = !provider.DisableSsl
-
-	return dialer
-}
-
-func SendEmail(provider *Provider, title string, content string, dest string, sender string) error {
-	dialer := getDialer(provider)
-
-	message := gomail.NewMessage()
-	message.SetAddressHeader("From", provider.ClientId, sender)
-	message.SetHeader("To", dest)
-	message.SetHeader("Subject", title)
-	message.SetBody("text/html", content)
-
-	if provider.Type == "Mailtrap" {
-		message.SkipUsernameCheck = true
-	}
-
-	return dialer.DialAndSend(message)
-}
-
-// DailSmtpServer Dail Smtp server
-func DailSmtpServer(provider *Provider) error {
-	dialer := getDialer(provider)
-
-	sender, err := dialer.Dial()
+// TestSmtpServer Test the SMTP server
+func TestSmtpServer(provider *Provider) error {
+	smtpEmailProvider := email.NewSmtpEmailProvider(provider.ClientId, provider.ClientSecret, provider.Host, provider.Port, provider.Type, provider.DisableSsl)
+	sender, err := smtpEmailProvider.Dialer.Dial()
 	if err != nil {
 		return err
 	}
 	defer sender.Close()
 
 	return nil
+}
+
+func SendEmail(provider *Provider, title string, content string, dest string, sender string) error {
+	emailProvider := email.GetEmailProvider(provider.Type, provider.ClientId, provider.ClientSecret, provider.Host, provider.Port, provider.DisableSsl, provider.Endpoint, provider.Method)
+
+	fromAddress := provider.ClientId2
+	if fromAddress == "" {
+		fromAddress = provider.ClientId
+	}
+
+	fromName := provider.ClientSecret2
+	if fromName == "" {
+		fromName = sender
+	}
+
+	return emailProvider.Send(fromAddress, fromName, dest, title, content)
 }

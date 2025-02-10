@@ -14,8 +14,8 @@
 
 import * as Setting from "../Setting";
 
-export function getSyncers(owner, page = "", pageSize = "", field = "", value = "", sortField = "", sortOrder = "") {
-  return fetch(`${Setting.ServerUrl}/api/get-syncers?owner=${owner}&p=${page}&pageSize=${pageSize}&field=${field}&value=${value}&sortField=${sortField}&sortOrder=${sortOrder}`, {
+export function getSyncers(owner, organization, page = "", pageSize = "", field = "", value = "", sortField = "", sortOrder = "") {
+  return fetch(`${Setting.ServerUrl}/api/get-syncers?owner=${owner}&organization=${organization}&p=${page}&pageSize=${pageSize}&field=${field}&value=${value}&sortField=${sortField}&sortOrder=${sortOrder}`, {
     method: "GET",
     credentials: "include",
     headers: {
@@ -49,6 +49,18 @@ export function updateSyncer(owner, name, syncer) {
 export function addSyncer(syncer) {
   const newSyncer = Setting.deepCopy(syncer);
   return fetch(`${Setting.ServerUrl}/api/add-syncer`, {
+    method: "POST",
+    credentials: "include",
+    body: JSON.stringify(newSyncer),
+    headers: {
+      "Accept-Language": Setting.getAcceptLanguage(),
+    },
+  }).then(res => res.json());
+}
+
+export function testSyncerDb(syncer) {
+  const newSyncer = Setting.deepCopy(syncer);
+  return fetch(`${Setting.ServerUrl}/api/test-syncer-db`, {
     method: "POST",
     credentials: "include",
     body: JSON.stringify(newSyncer),

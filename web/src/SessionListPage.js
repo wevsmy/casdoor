@@ -19,18 +19,19 @@ import {Link} from "react-router-dom";
 import {Table, Tag} from "antd";
 import React from "react";
 import * as SessionBackend from "./backend/SessionBackend";
-import PopconfirmModal from "./PopconfirmModal";
+import PopconfirmModal from "./common/modal/PopconfirmModal";
 
 class SessionListPage extends BaseListPage {
-
   deleteSession(i) {
     SessionBackend.deleteSession(this.state.data[i])
       .then((res) => {
         if (res.status === "ok") {
           Setting.showMessage("success", i18next.t("general:Successfully deleted"));
-          this.setState({
-            data: Setting.deleteRow(this.state.data, i),
-            pagination: {total: this.state.pagination.total - 1},
+          this.fetch({
+            pagination: {
+              ...this.state.pagination,
+              current: this.state.pagination.current > 1 && this.state.data.length === 1 ? this.state.pagination.current - 1 : this.state.pagination.current,
+            },
           });
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to delete")}: ${res.msg}`);
@@ -55,10 +56,10 @@ class SessionListPage extends BaseListPage {
       {
         title: i18next.t("general:Organization"),
         dataIndex: "owner",
-        key: "organization",
+        key: "owner",
         width: "110px",
         sorter: true,
-        ...this.getColumnSearchProps("organization"),
+        ...this.getColumnSearchProps("owner"),
         render: (text, record, index) => {
           return (
             <Link to={`/organizations/${text}`}>
@@ -134,11 +135,13 @@ class SessionListPage extends BaseListPage {
       value = params.contentType;
     }
     this.setState({loading: true});
-    SessionBackend.getSessions("", params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
+    SessionBackend.getSessions(Setting.isDefaultOrganizationSelected(this.props.account) ? "" : Setting.getRequestOrganization(this.props.account), params.pagination.current, params.pagination.pageSize, field, value, sortField, sortOrder)
       .then((res) => {
+        this.setState({
+          loading: false,
+        });
         if (res.status === "ok") {
           this.setState({
-            loading: false,
             data: res.data,
             pagination: {
               ...params.pagination,
@@ -150,9 +153,10 @@ class SessionListPage extends BaseListPage {
         } else {
           if (Setting.isResponseDenied(res)) {
             this.setState({
-              loading: false,
               isAuthorized: false,
             });
+          } else {
+            Setting.showMessage("error", res.msg);
           }
         }
       });
